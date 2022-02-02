@@ -1,105 +1,70 @@
 <p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
+  <a href="https://github.com/tomjschuster/cloudflare-pages-deploy-action/actions"><img alt="typescript-action status" src="https://github.com/tomjschuster/cloudflare-pages-deploy-action/workflows/build-test/badge.svg"></a>
 </p>
 
-# Create a JavaScript Action using TypeScript
+# Cloudflare Pages Deploy Action
 
-Use this template to bootstrap the creation of a TypeScript action.:rocket:
+Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a project's production branch.
 
-This template includes compilation support, tests, a validation workflow, publishing, and versioning guidance.  
+![Cloudflare Page deploying from GitHub Actions](./assets/action-example.png)
 
-If you are new, there's also a simpler introduction.  See the [Hello World JavaScript Action](https://github.com/actions/hello-world-javascript-action)
+## Limitations
 
-## Create an action from this template
+- This action ALWAYS deploys your production branch. This is due the fact that the Cloudflare v4 API `Create deployment` endpoint currently only supports creating production deployments. This means:
+  - This action should only be used on pushes to the branch configured as your Pages project's production branch (`main`, by default).
+  - This action DOES NOT create any preview deployments.
+  - This action DOES NOT create any comments on any pull requests
+- This action DOES NOT upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
 
-Click the `Use this Template` and provide the new repo details for your action
+## Alternatives
 
-## Code in Main
+Cloudflare's official [Pages integrated GitHub application](https://github.com/apps/cloudflare-pages) supports [preview deployments](https://developers.cloudflare.com/pages/platform/preview-deployments) for pull requests in addition to production deploys. Following the [Getting Started guide](https://developers.cloudflare.com/pages/get-started) for GitHub will enable this by default. The status of these deploys will be associated with the proper GitHub branch, however, the deployments will always be triggered immediately on any push to your production branch or any pull request and cannot be integrated into any existing CI flows.
 
-> First, you'll need to have a reasonably modern version of `node` handy. This won't work with versions older than 9, for instance.
+Cloudflare pages can also be deployed using [Deploy Hooks](https://developers.cloudflare.com/pages/platform/deploy-hooks). Hooks can be created for deploying to specific branches from your Pages project's Settings. Hooks can be integrated an existing CI flows for specific branches (e.g. production, staging), however the status of this build will not create any checks associated with your production branch or any pull request. Additionally, similar to this action's limitations, cannot be used for preview environments.
 
-Install the dependencies  
-```bash
-$ npm install
-```
+## Usage
 
-Build the typescript and package it for distribution
-```bash
-$ npm run build && npm run package
-```
+If you are okay with the above [limitations](#limitations), prefer to use this action over the official Cloudflare [alternatives](#alternatives), follow the instructions below to configure the action.
 
-Run the tests :heavy_check_mark:  
-```bash
-$ npm test
+### Inputs
 
- PASS  ./index.test.js
-  ✓ throws invalid number (3ms)
-  ✓ wait 500 ms (504ms)
-  ✓ test runs (95ms)
+All inputs are required. It is strongly recommended that you use [Encrypted Secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets) for storing/accessing these values:
 
-...
-```
+| Name         | Description                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| account-id   | Your Cloudflare account id. This is the id in the URL of Cloudflare's dashboard. You can also run the command `wrangler whoami`.   |
+| api-key      | Your [Cloudflare Global API Key](https://developers.cloudflare.com/api/keys#view-your-api-key) (Pages does not accept API tokens). |
+| email        | The email associated with your Cloudflare account                                                                                  |
+| project-name | The name of your Pages project                                                                                                     |
 
-## Change action.yml
+### Outputs
 
-The action.yml defines the inputs and output for your action.
+| Name           | Description                                                                                                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| deployment-id  | Unique identifier of the deployment created by the action.                                                                                           |
+| deployment-url | Even though this action deploys the production branch, this will be the the build-specific pages URL (e.g. https://a6975138.example-site.pages.dev). |
 
-Update the action.yml with your name, description, inputs and outputs for your action.
+### Example
 
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
-
-## Change the Code
-
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
-
-```javascript
-import * as core from '@actions/core';
-...
-
-async function run() {
-  try { 
-      ...
-  } 
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-run()
-```
-
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
-
-## Publish to a distribution branch
-
-Actions are run from GitHub repos so we will checkin the packed dist folder. 
-
-Then run [ncc](https://github.com/zeit/ncc) and push the results:
-```bash
-$ npm run package
-$ git add dist
-$ git commit -a -m "prod dependencies"
-$ git push origin releases/v1
-```
-
-Note: We recommend using the `--license` option for ncc, which will create a license file for all of the production node modules used in your project.
-
-Your action is now published! :rocket: 
-
-See the [versioning documentation](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-
-## Validate
-
-You can now validate the action by referencing `./` in a workflow in your repo (see [test.yml](.github/workflows/test.yml))
+Add a workflow (`.github/workflows/deploy-production.yml`):
 
 ```yaml
-uses: ./
-with:
-  milliseconds: 1000
+name: Deploy to production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: tomjschuster/cloudflare-pages-deploy-action/v0
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
 ```
-
-See the [actions tab](https://github.com/actions/typescript-action/actions) for runs of this action! :rocket:
-
-## Usage:
-
-After testing you can [create a v1 tag](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md) to reference the stable and latest V1 action

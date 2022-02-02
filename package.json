@@ -1,8 +1,8 @@
 {
-  "name": "typescript-action",
+  "name": "cloudflare-pages-deploy",
   "version": "0.0.0",
   "private": true,
-  "description": "TypeScript template action",
+  "description": "A GitHub Action to deploy a CloudFlare Pages Project",
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
@@ -15,19 +15,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/tomjschuster/cloudflare-pages-deploy-action.git"
   },
   "keywords": [
     "actions",
-    "node",
-    "setup"
+    "cloudflare",
+    "pages"
   ],
-  "author": "",
+  "author": "Tom Schuster",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.6.0"
+    "@actions/core": "^1.6.0",
+    "node-fetch": "^3.2.0"
   },
   "devDependencies": {
+    "@types/jest": "^27.4.0",
     "@types/node": "^16.10.5",
     "@typescript-eslint/parser": "^5.8.1",
     "@vercel/ncc": "^0.31.1",
