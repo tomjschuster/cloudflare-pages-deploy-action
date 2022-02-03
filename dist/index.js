@@ -92,6 +92,8 @@ function logDeploymentStages({ id, stages }, sdk, config = {}) {
             if (shouldSkip(stageLogs))
                 continue;
             (0, core_1.startGroup)(displayNewStage(name));
+            for (const log of extraStageLogs(name))
+                console.log(log);
             // eslint-disable-next-line no-constant-condition
             while (true) {
                 for (const log of getNewStageLogs(stageLogs, lastLogId))
@@ -116,17 +118,25 @@ function shouldSkip(stage) {
 function displayNewStage(stageName) {
     switch (stageName) {
         case 'queued':
-            return 'Build queued';
+            return 'Queued';
         case 'initialize':
-            return 'Initializing build environment';
+            return 'Initialize';
         case 'clone_repo':
-            return 'Cloning git repository';
+            return 'Clone Repo';
         case 'build':
-            return 'Building application';
+            return 'Build';
         case 'deploy':
-            return `Deploying to Cloudflare's global network`;
+            return `Deploy`;
         default:
             return stageName;
+    }
+}
+function extraStageLogs(stageName) {
+    switch (stageName) {
+        case 'build':
+            return ['Building application...'];
+        default:
+            return [];
     }
 }
 function getPollInterval(stage) {
