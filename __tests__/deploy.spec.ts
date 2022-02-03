@@ -81,7 +81,8 @@ describe('deploy', () => {
 
     await expect(deploy(sdk, pollConfig)).resolves.toEqual(completeLiveDeployment)
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(10)
-    expect(consoleSpy).toHaveBeenCalledTimes(10)
+    // extra log for build
+    expect(consoleSpy).toHaveBeenCalledTimes(11)
     expect(startGroupSpy).toHaveBeenCalledTimes(5)
     expect(endGroupSpy).toHaveBeenCalledTimes(5)
   })
@@ -102,8 +103,8 @@ describe('deploy', () => {
     await expect(deploy(sdk, pollConfig)).resolves.toEqual(completeLiveDeployment)
     // 1 call for queued stage, 2 logs for each other stage
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(9)
-    // Skip queued stage, 2 logs for each other stage
-    expect(consoleSpy).toHaveBeenCalledTimes(8)
+    // Skip queued stage, 2 logs for each other stage, extra log for build
+    expect(consoleSpy).toHaveBeenCalledTimes(9)
     expect(startGroupSpy).toHaveBeenCalledTimes(4)
     expect(endGroupSpy).toHaveBeenCalledTimes(4)
   })
@@ -119,8 +120,8 @@ describe('deploy', () => {
 
     await expect(deploy(sdk)).resolves.toEqual(completedDeployment)
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(5)
-    // Skip queued stage, 2 logs for each other stage
-    expect(consoleSpy).toHaveBeenCalledTimes(8)
+    // Skip queued stage, 2 logs for each other stage, extra log for build
+    expect(consoleSpy).toHaveBeenCalledTimes(9)
     expect(startGroupSpy).toHaveBeenCalledTimes(4)
     expect(endGroupSpy).toHaveBeenCalledTimes(4)
   })
@@ -160,8 +161,8 @@ describe('deploy', () => {
     await expect(deploy(sdk, pollConfig)).resolves.toEqual(failedLiveDeployment)
     // 1 call for queued stage, 2 logs for each other stage, skip deploy
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(7)
-    // Skip queued stage, 2 logs for each other stage, skip deploy
-    expect(consoleSpy).toHaveBeenCalledTimes(6)
+    // Skip queued stage, 2 logs for each other stage, extra log for build, skip deploy
+    expect(consoleSpy).toHaveBeenCalledTimes(7)
     expect(startGroupSpy).toHaveBeenCalledTimes(3)
     expect(endGroupSpy).toHaveBeenCalledTimes(3)
   })
