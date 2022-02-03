@@ -187,7 +187,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.projectDashboardUrl = exports.run = void 0;
+exports.run = void 0;
 const core_1 = __nccwpck_require__(186);
 const deploy_1 = __nccwpck_require__(538);
 const sdk_1 = __importDefault(__nccwpck_require__(557));
@@ -202,12 +202,6 @@ function run() {
     });
 }
 exports.run = run;
-function projectDashboardUrl() {
-    const accountId = (0, core_1.getInput)('account-id', { required: true });
-    const projectName = (0, core_1.getInput)('project-name', { required: true });
-    return `https://dash.cloudflare.com/${accountId}/pages/view/${projectName}`;
-}
-exports.projectDashboardUrl = projectDashboardUrl;
 function getSdkConfigFromInput() {
     return {
         accountId: (0, core_1.getInput)('account-id', { required: true }),
@@ -9062,8 +9056,9 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __nccwpck_require__(186);
 const run_1 = __nccwpck_require__(884);
 (0, run_1.run)().catch((e) => {
-    console.log(`There was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successfull. See ${(0, run_1.projectDashboardUrl)()} for more details.`);
+    (0, core_1.endGroup)();
     (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
+    console.log(`There was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successfull. See https://dash.cloudflare.com for more details.`);
     return Promise.reject(e);
 });
 
