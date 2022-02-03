@@ -15,6 +15,12 @@ export async function run(): Promise<void> {
   checkDeployment(deployment)
 }
 
+export function projectDashboardUrl(): string {
+  const accountId = getInput('account-id', { required: true })
+  const projectName = getInput('project-name', { required: true })
+  return `https://dash.cloudflare.com/${accountId}/pages/view/${projectName}`
+}
+
 function getSdkConfigFromInput(): SdkConfig {
   return {
     accountId: getInput('account-id', { required: true }),

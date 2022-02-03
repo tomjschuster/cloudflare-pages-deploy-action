@@ -18,10 +18,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.deploy = void 0;
 const logs_1 = __nccwpck_require__(997);
-function deploy(sdk, config = {}) {
+function deploy(sdk, pollIntervalConfig = {}) {
     return __awaiter(this, void 0, void 0, function* () {
         const deployment = yield sdk.createDeployment();
-        yield (0, logs_1.logDeploymentStages)(deployment, sdk, config);
+        yield (0, logs_1.logDeploymentStages)(deployment, sdk, pollIntervalConfig);
         return yield sdk.getDeploymentInfo(deployment.id);
     });
 }
@@ -83,7 +83,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getPollInterval = exports.logDeploymentStages = void 0;
 const core_1 = __nccwpck_require__(186);
 const utils_1 = __nccwpck_require__(918);
-function logDeploymentStages({ id, stages }, sdk, config = {}) {
+function logDeploymentStages({ id, stages }, sdk, pollIntervalConfig = {}) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         for (const { name } of stages) {
@@ -94,13 +94,15 @@ function logDeploymentStages({ id, stages }, sdk, config = {}) {
             (0, core_1.startGroup)(displayNewStage(name));
             for (const log of extraStageLogs(name))
                 console.log(log);
+            if (name === 'build')
+                throw new Error('foo');
             // eslint-disable-next-line no-constant-condition
             while (true) {
                 for (const log of getNewStageLogs(stageLogs, lastLogId))
                     console.log(log.message);
                 if ((0, utils_1.isStageComplete)(stageLogs))
                     break;
-                yield (0, utils_1.wait)((_a = config[name]) !== null && _a !== void 0 ? _a : getPollInterval(stageLogs));
+                yield (0, utils_1.wait)((_a = pollIntervalConfig[name]) !== null && _a !== void 0 ? _a : getPollInterval(stageLogs));
                 lastLogId = getLastLogId(stageLogs);
                 stageLogs = yield sdk.getStageLogs(id, name);
             }
@@ -141,14 +143,18 @@ function extraStageLogs(stageName) {
 }
 function getPollInterval(stage) {
     switch (stage.name) {
+        case 'queued':
         case 'initialize':
         case 'build':
             return 15000;
+        case 'clone_repo':
+        case 'deploy':
         default:
             return 5000;
     }
 }
 exports.getPollInterval = getPollInterval;
+//
 function getNewStageLogs(logs, lastLogId) {
     if (lastLogId === undefined)
         return logs.data;
@@ -181,7 +187,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = void 0;
+exports.projectDashboardUrl = exports.run = void 0;
 const core_1 = __nccwpck_require__(186);
 const deploy_1 = __nccwpck_require__(538);
 const sdk_1 = __importDefault(__nccwpck_require__(557));
@@ -196,6 +202,12 @@ function run() {
     });
 }
 exports.run = run;
+function projectDashboardUrl() {
+    const accountId = (0, core_1.getInput)('account-id', { required: true });
+    const projectName = (0, core_1.getInput)('project-name', { required: true });
+    return `https://dash.cloudflare.com/${accountId}/pages/view/${projectName}`;
+}
+exports.projectDashboardUrl = projectDashboardUrl;
 function getSdkConfigFromInput() {
     return {
         accountId: (0, core_1.getInput)('account-id', { required: true }),
@@ -9054,6 +9066,7 @@ try {
 }
 catch (e) {
     (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
+    console.log(`There was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successfull. See ${(0, run_1.projectDashboardUrl)()} for more details.`);
 }
 
 })();
