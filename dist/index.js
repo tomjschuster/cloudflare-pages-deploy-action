@@ -9065,8 +9065,8 @@ try {
     (0, run_1.run)();
 }
 catch (e) {
-    (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
     console.log(`There was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successfull. See ${(0, run_1.projectDashboardUrl)()} for more details.`);
+    (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
 }
 
 })();
