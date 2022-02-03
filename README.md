@@ -8,9 +8,9 @@ Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a pr
 
 ![Cloudflare Page deploying from GitHub Actions](./assets/action-example.png)
 
-## Limitations
+## Current Limitations
 
-- This action ALWAYS deploys your production branch. This is due the fact that the Cloudflare v4 API `Create deployment` endpoint currently only supports creating production deployments. This means:
+- Because the Cloudflare v4 API `Create deployment` endpoint only supports creating production deployments, this action ALWAYS deploys your production branch. Therefore:
   - This action should only be used on pushes to the branch configured as your Pages project's production branch (`main`, by default).
   - This action DOES NOT create any preview deployments.
   - This action DOES NOT create any comments on any pull requests
