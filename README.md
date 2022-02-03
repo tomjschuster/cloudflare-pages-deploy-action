@@ -10,7 +10,7 @@ Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a pr
 
 ## Current Limitations
 
-- Because the Cloudflare v4 API `Create deployment` endpoint only supports creating production deployments, this action ALWAYS deploys your production branch. Therefore:
+- Because the Cloudflare v4 API [`Create deployment`](https://api.cloudflare.com/#pages-deployment-create-deployment) endpoint only supports creating production deployments, this action ALWAYS deploys your production branch. Therefore:
   - This action should only be used on pushes to the branch configured as your Pages project's production branch (`main`, by default).
   - This action DOES NOT create any preview deployments.
   - This action DOES NOT create any comments on any pull requests
