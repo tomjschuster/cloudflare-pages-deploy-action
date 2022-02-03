@@ -20,8 +20,6 @@ export async function logDeploymentStages(
 
     for (const log of extraStageLogs(name)) console.log(log)
 
-    if (name === 'build') throw new Error('foo')
-
     // eslint-disable-next-line no-constant-condition
     while (true) {
       for (const log of getNewStageLogs(stageLogs, lastLogId)) console.log(log.message)

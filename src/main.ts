@@ -7,7 +7,7 @@ run().catch((e) => {
   setFailed(e instanceof Error ? e.message : `${e}`)
 
   console.log(
-    `There was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successfull. See https://dash.cloudflare.com for more details.`,
+    `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to your Pages dashboard through https://dash.cloudflare.com for more details.`,
   )
 
   return Promise.reject(e)

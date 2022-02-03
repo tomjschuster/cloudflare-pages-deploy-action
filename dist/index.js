@@ -20,6 +20,7 @@ exports.deploy = void 0;
 const logs_1 = __nccwpck_require__(997);
 function deploy(sdk, pollIntervalConfig = {}) {
     return __awaiter(this, void 0, void 0, function* () {
+        throw new Error('bar');
         const deployment = yield sdk.createDeployment();
         yield (0, logs_1.logDeploymentStages)(deployment, sdk, pollIntervalConfig);
         return yield sdk.getDeploymentInfo(deployment.id);
@@ -94,8 +95,6 @@ function logDeploymentStages({ id, stages }, sdk, pollIntervalConfig = {}) {
             (0, core_1.startGroup)(displayNewStage(name));
             for (const log of extraStageLogs(name))
                 console.log(log);
-            if (name === 'build')
-                throw new Error('foo');
             // eslint-disable-next-line no-constant-condition
             while (true) {
                 for (const log of getNewStageLogs(stageLogs, lastLogId))
@@ -9058,7 +9057,7 @@ const run_1 = __nccwpck_require__(884);
 (0, run_1.run)().catch((e) => {
     (0, core_1.endGroup)();
     (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
-    console.log(`There was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successfull. See https://dash.cloudflare.com for more details.`);
+    console.log(`\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to your Pages dashboard through https://dash.cloudflare.com for more details.`);
     return Promise.reject(e);
 });
 
