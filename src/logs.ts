@@ -82,7 +82,8 @@ export function getPollInterval(stage: StageLogsResult): number {
   }
 }
 
-//
+// The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
+// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
 function getNewStageLogs(logs: StageLogsResult, lastLogId?: number): StageLog[] {
   if (lastLogId === undefined) return logs.data
   if (logs.end === lastLogId) return []

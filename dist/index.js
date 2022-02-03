@@ -20,7 +20,6 @@ exports.deploy = void 0;
 const logs_1 = __nccwpck_require__(997);
 function deploy(sdk, pollIntervalConfig = {}) {
     return __awaiter(this, void 0, void 0, function* () {
-        throw new Error('bar');
         const deployment = yield sdk.createDeployment();
         yield (0, logs_1.logDeploymentStages)(deployment, sdk, pollIntervalConfig);
         return yield sdk.getDeploymentInfo(deployment.id);
@@ -153,7 +152,8 @@ function getPollInterval(stage) {
     }
 }
 exports.getPollInterval = getPollInterval;
-//
+// The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
+// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
 function getNewStageLogs(logs, lastLogId) {
     if (lastLogId === undefined)
         return logs.data;
@@ -9057,7 +9057,7 @@ const run_1 = __nccwpck_require__(884);
 (0, run_1.run)().catch((e) => {
     (0, core_1.endGroup)();
     (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
-    console.log(`\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to your Pages dashboard through https://dash.cloudflare.com for more details.`);
+    console.log(`\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to https://dash.cloudflare.com and visit your Pages dashboard for more details.`);
     return Promise.reject(e);
 });
 
