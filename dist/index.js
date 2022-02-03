@@ -18,10 +18,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.deploy = void 0;
 const logs_1 = __nccwpck_require__(997);
-function deploy(sdk, config = {}) {
+function deploy(sdk, pollIntervalConfig = {}) {
     return __awaiter(this, void 0, void 0, function* () {
         const deployment = yield sdk.createDeployment();
-        yield (0, logs_1.logDeploymentStages)(deployment, sdk, config);
+        yield (0, logs_1.logDeploymentStages)(deployment, sdk, pollIntervalConfig);
         return yield sdk.getDeploymentInfo(deployment.id);
     });
 }
@@ -83,7 +83,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getPollInterval = exports.logDeploymentStages = void 0;
 const core_1 = __nccwpck_require__(186);
 const utils_1 = __nccwpck_require__(918);
-function logDeploymentStages({ id, stages }, sdk, config = {}) {
+function logDeploymentStages({ id, stages }, sdk, pollIntervalConfig = {}) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         for (const { name } of stages) {
@@ -100,7 +100,7 @@ function logDeploymentStages({ id, stages }, sdk, config = {}) {
                     console.log(log.message);
                 if ((0, utils_1.isStageComplete)(stageLogs))
                     break;
-                yield (0, utils_1.wait)((_a = config[name]) !== null && _a !== void 0 ? _a : getPollInterval(stageLogs));
+                yield (0, utils_1.wait)((_a = pollIntervalConfig[name]) !== null && _a !== void 0 ? _a : getPollInterval(stageLogs));
                 lastLogId = getLastLogId(stageLogs);
                 stageLogs = yield sdk.getStageLogs(id, name);
             }
@@ -141,14 +141,19 @@ function extraStageLogs(stageName) {
 }
 function getPollInterval(stage) {
     switch (stage.name) {
+        case 'queued':
         case 'initialize':
         case 'build':
             return 15000;
+        case 'clone_repo':
+        case 'deploy':
         default:
             return 5000;
     }
 }
 exports.getPollInterval = getPollInterval;
+// The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
+// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
 function getNewStageLogs(logs, lastLogId) {
     if (lastLogId === undefined)
         return logs.data;
@@ -9049,12 +9054,12 @@ var exports = __webpack_exports__;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __nccwpck_require__(186);
 const run_1 = __nccwpck_require__(884);
-try {
-    (0, run_1.run)();
-}
-catch (e) {
+(0, run_1.run)().catch((e) => {
+    (0, core_1.endGroup)();
     (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
-}
+    console.log(`\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to https://dash.cloudflare.com and visit your Pages dashboard for more details.`);
+    return Promise.reject(e);
+});
 
 })();
 

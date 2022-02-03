@@ -8,7 +8,7 @@ export type Log = { type: 'stage-log'; log: StageLog } | { type: 'new-stage'; na
 export async function logDeploymentStages(
   { id, stages }: Deployment,
   sdk: Sdk,
-  config: StagePollIntervalConfig = {},
+  pollIntervalConfig: StagePollIntervalConfig = {},
 ): Promise<void> {
   for (const { name } of stages) {
     let stageLogs: StageLogsResult = await sdk.getStageLogs(id, name)
@@ -26,7 +26,7 @@ export async function logDeploymentStages(
 
       if (isStageComplete(stageLogs)) break
 
-      await wait(config[name] ?? getPollInterval(stageLogs))
+      await wait(pollIntervalConfig[name] ?? getPollInterval(stageLogs))
 
       lastLogId = getLastLogId(stageLogs)
       stageLogs = await sdk.getStageLogs(id, name)
@@ -71,14 +71,19 @@ function extraStageLogs(stageName: StageName): string[] {
 
 export function getPollInterval(stage: StageLogsResult): number {
   switch (stage.name) {
+    case 'queued':
     case 'initialize':
     case 'build':
       return 15000
+    case 'clone_repo':
+    case 'deploy':
     default:
       return 5000
   }
 }
 
+// The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
+// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
 function getNewStageLogs(logs: StageLogsResult, lastLogId?: number): StageLog[] {
   if (lastLogId === undefined) return logs.data
   if (logs.end === lastLogId) return []
