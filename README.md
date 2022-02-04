@@ -64,3 +64,7 @@ jobs:
           email: '${{ secrets.CF_EMAIL }}'
           project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
 ```
+
+## License
+
+The scripts and documentation in this project are released under the [MIT License](LICENSE).
