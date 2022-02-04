@@ -4,7 +4,7 @@
 
 # Cloudflare Pages Deploy Action
 
-Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a project's production branch through the [Cloudflare v4 API]((https://api.cloudflare.com/) and tracks the progress of the deployment across all stages.
+Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a project's production branch through the [Cloudflare v4 API](https://api.cloudflare.com/) and tracks the progress of the deployment across all stages.
 
 ![Cloudflare Page deploying from GitHub Actions](./assets/action-example.png)
 
@@ -15,17 +15,15 @@ Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a pr
 - This action does not create any comments on any pull requests
 - This action does not upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
 
-## Alternatives
+### Alternatives
 
 Cloudflare's official [Pages integrated GitHub application](https://github.com/apps/cloudflare-pages) supports [preview deployments](https://developers.cloudflare.com/pages/platform/preview-deployments) for pull requests in addition to production deploys. Following the [Getting Started guide](https://developers.cloudflare.com/pages/get-started) for GitHub will enable this by default. The status of these deploys will be associated with the proper GitHub branch, however, the deployments will always be triggered immediately on any push to your production branch or pull request and cannot be integrated into any existing CI flows (e.g. there's no way to defer a production deploy until other actions have passed).
 
 Cloudflare pages can also be deployed using [Deploy Hooks](https://developers.cloudflare.com/pages/platform/deploy-hooks). Hooks can be created for deploying to specific branches from your Pages project's Settings. Hooks can be integrated an existing CI flows for specific branches (e.g. production, staging), however they will not create any checks associated with your production branch or any pull request so there will be no feedback about the status of the build the on your production branch or pull requests. Similar to this action's limitations, hooks cannot be used for preview environments for all pull requests.
 
-## Usage
-
 If you are okay with the above limitations and prefer to use this action over the official Cloudflare alternatives, follow the instructions below to configure your action.
 
-### Inputs
+## Inputs
 
 All inputs are required. It is strongly recommended that you use [Encrypted Secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets) for storing/accessing these values:
 
@@ -36,14 +34,14 @@ All inputs are required. It is strongly recommended that you use [Encrypted Secr
 | email        | The email associated with your Cloudflare account                                                                                  |
 | project-name | The name of your Pages project                                                                                                     |
 
-### Outputs
+## Outputs
 
 | Name           | Description                                                                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | deployment-id  | Unique identifier of the deployment created by the action.                                                                                             |
 | deployment-url | Even though this action deploys the production branch, this will be the the build-specific pages URL (e.g. `https://a6975138.example-site.pages.dev`). |
 
-### Example
+## Example
 
 Add a workflow (`.github/workflows/deploy-production.yml`):
 
