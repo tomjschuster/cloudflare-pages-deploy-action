@@ -4,27 +4,26 @@
 
 # Cloudflare Pages Deploy Action
 
-Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a project's production branch.
+Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a project's production branch through the [Cloudflare v4 API]((https://api.cloudflare.com/) and tracks the progress of the deployment across all stages.
 
 ![Cloudflare Page deploying from GitHub Actions](./assets/action-example.png)
 
 ## Current Limitations
 
-- Because the Cloudflare v4 API [`Create deployment`](https://api.cloudflare.com/#pages-deployment-create-deployment) endpoint only supports creating production deployments, this action ALWAYS deploys your production branch. Therefore:
-  - This action should only be used on pushes to the branch configured as your Pages project's production branch (`main`, by default).
-  - This action DOES NOT create any preview deployments.
-  - This action DOES NOT create any comments on any pull requests
-- This action DOES NOT upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
+- Because the Cloudflare v4 API [`Create deployment`](https://api.cloudflare.com/#pages-deployment-create-deployment) endpoint only supports creating production deployments, **this action always deploys your production branch**. Therefore, this action should only be used on pushes to the branch configured as your Pages project's **production branch** (`main`, by default).
+- This action does not create any preview deployments.
+- This action does not create any comments on any pull requests
+- This action does not upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
 
 ## Alternatives
 
-Cloudflare's official [Pages integrated GitHub application](https://github.com/apps/cloudflare-pages) supports [preview deployments](https://developers.cloudflare.com/pages/platform/preview-deployments) for pull requests in addition to production deploys. Following the [Getting Started guide](https://developers.cloudflare.com/pages/get-started) for GitHub will enable this by default. The status of these deploys will be associated with the proper GitHub branch, however, the deployments will always be triggered immediately on any push to your production branch or any pull request and cannot be integrated into any existing CI flows.
+Cloudflare's official [Pages integrated GitHub application](https://github.com/apps/cloudflare-pages) supports [preview deployments](https://developers.cloudflare.com/pages/platform/preview-deployments) for pull requests in addition to production deploys. Following the [Getting Started guide](https://developers.cloudflare.com/pages/get-started) for GitHub will enable this by default. The status of these deploys will be associated with the proper GitHub branch, however, the deployments will always be triggered immediately on any push to your production branch or pull request and cannot be integrated into any existing CI flows (e.g. there's no way to defer a production deploy until other actions have passed).
 
-Cloudflare pages can also be deployed using [Deploy Hooks](https://developers.cloudflare.com/pages/platform/deploy-hooks). Hooks can be created for deploying to specific branches from your Pages project's Settings. Hooks can be integrated an existing CI flows for specific branches (e.g. production, staging), however the status of this build will not create any checks associated with your production branch or any pull request. Additionally, similar to this action's limitations, cannot be used for preview environments.
+Cloudflare pages can also be deployed using [Deploy Hooks](https://developers.cloudflare.com/pages/platform/deploy-hooks). Hooks can be created for deploying to specific branches from your Pages project's Settings. Hooks can be integrated an existing CI flows for specific branches (e.g. production, staging), however they will not create any checks associated with your production branch or any pull request so there will be no feedback about the status of the build the on your production branch or pull requests. Similar to this action's limitations, hooks cannot be used for preview environments for all pull requests.
 
 ## Usage
 
-If you are okay with the above [limitations](#limitations), prefer to use this action over the official Cloudflare [alternatives](#alternatives), follow the instructions below to configure the action.
+If you are okay with the above limitations and prefer to use this action over the official Cloudflare alternatives, follow the instructions below to configure your action.
 
 ### Inputs
 
@@ -39,10 +38,10 @@ All inputs are required. It is strongly recommended that you use [Encrypted Secr
 
 ### Outputs
 
-| Name           | Description                                                                                                                                          |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| deployment-id  | Unique identifier of the deployment created by the action.                                                                                           |
-| deployment-url | Even though this action deploys the production branch, this will be the the build-specific pages URL (e.g. https://a6975138.example-site.pages.dev). |
+| Name           | Description                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| deployment-id  | Unique identifier of the deployment created by the action.                                                                                             |
+| deployment-url | Even though this action deploys the production branch, this will be the the build-specific pages URL (e.g. `https://a6975138.example-site.pages.dev`). |
 
 ### Example
 
@@ -60,7 +59,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
       - uses: tomjschuster/cloudflare-pages-deploy-action/v0
         with:
           account-id: '${{ secrets.CF_ACCOUNT_ID }}'
