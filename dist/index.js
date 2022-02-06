@@ -17,72 +17,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.deploy = void 0;
-const logs_1 = __nccwpck_require__(997);
+const core_1 = __nccwpck_require__(186);
+const utils_1 = __nccwpck_require__(918);
 function deploy(sdk, pollIntervalConfig = {}) {
     return __awaiter(this, void 0, void 0, function* () {
         const deployment = yield sdk.createDeployment();
-        yield (0, logs_1.logDeploymentStages)(deployment, sdk, pollIntervalConfig);
+        yield logDeploymentStages(deployment, sdk, pollIntervalConfig);
         return yield sdk.getDeploymentInfo(deployment.id);
     });
 }
 exports.deploy = deploy;
-
-
-/***/ }),
-
-/***/ 292:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.formatApiErrors = exports.PagesDeploymentStageError = exports.CloudFlareApiError = void 0;
-class CloudFlareApiError extends Error {
-    constructor(result) {
-        super(formatApiErrors(result.errors || []));
-        Object.setPrototypeOf(this, CloudFlareApiError.prototype);
-        this.result = result;
-    }
-}
-exports.CloudFlareApiError = CloudFlareApiError;
-class PagesDeploymentStageError extends Error {
-    constructor(stage) {
-        super(formatStageError(stage));
-        Object.setPrototypeOf(this, CloudFlareApiError.prototype);
-        this.stage = stage;
-    }
-}
-exports.PagesDeploymentStageError = PagesDeploymentStageError;
-function formatApiErrors(errors) {
-    const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
-    return `[Cloudflare API Error]:\n${apiErrors}`;
-}
-exports.formatApiErrors = formatApiErrors;
-function formatStageError(stage) {
-    return `[Cloudflare Pages Deployment Stage Failure] Stage ${stage.name} failed`;
-}
-
-
-/***/ }),
-
-/***/ 997:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getPollInterval = exports.logDeploymentStages = void 0;
-const core_1 = __nccwpck_require__(186);
-const utils_1 = __nccwpck_require__(918);
 function logDeploymentStages({ id, stages }, sdk, pollIntervalConfig = {}) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -111,7 +55,6 @@ function logDeploymentStages({ id, stages }, sdk, pollIntervalConfig = {}) {
         }
     });
 }
-exports.logDeploymentStages = logDeploymentStages;
 function shouldSkip(stage) {
     return stage.name === 'queued' && stage.status === 'success';
 }
@@ -151,7 +94,6 @@ function getPollInterval(stage) {
             return 5000;
     }
 }
-exports.getPollInterval = getPollInterval;
 // The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
 // https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
 function getNewStageLogs(logs, lastLogId) {
@@ -243,8 +185,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CloudFlareApiError = void 0;
 const node_fetch_1 = __importDefault(__nccwpck_require__(429));
-const errors_1 = __nccwpck_require__(292);
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
 function createSdk({ accountId, apiKey, email, projectName }) {
     function fetchCf(path, method = 'GET') {
@@ -257,7 +199,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                 },
             }).then((res) => (res.ok ? res.json() : Promise.reject(res))));
             if (!result.success)
-                return Promise.reject(new errors_1.CloudFlareApiError(result));
+                return Promise.reject(new CloudFlareApiError(result));
             return result.result;
         });
     }
@@ -283,6 +225,18 @@ function createSdk({ accountId, apiKey, email, projectName }) {
 exports["default"] = createSdk;
 function projectPath(accountId, projectName, path) {
     return `/accounts/${accountId}/pages/projects/${projectName}/${path}`;
+}
+class CloudFlareApiError extends Error {
+    constructor(result) {
+        super(formatApiErrors(result.errors || []));
+        Object.setPrototypeOf(this, CloudFlareApiError.prototype);
+        this.result = result;
+    }
+}
+exports.CloudFlareApiError = CloudFlareApiError;
+function formatApiErrors(errors) {
+    const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
+    return `[Cloudflare API Error]:\n${apiErrors}`;
 }
 
 
