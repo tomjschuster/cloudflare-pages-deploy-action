@@ -38,7 +38,9 @@ async function logDeploymentStages({ id, stages }: Deployment, sdk: Sdk): Promis
       // every 5 polls to see if the next stage has started to reduce the probability of an infinite
       // loop until the the job times out.
       if (nextStage && pollAttempts % 5 === 0) {
+        console.log('current stage', stageLogs)
         const nextStageLogs = await sdk.getStageLogs(id, nextStage.name)
+        console.log('next stage', nextStageLogs)
         if (!isStageQueued(nextStageLogs)) break
       }
 

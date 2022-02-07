@@ -51,7 +51,9 @@ function logDeploymentStages({ id, stages }, sdk) {
                 // every 5 polls to see if the next stage has started to reduce the probability of an infinite
                 // loop until the the job times out.
                 if (nextStage && pollAttempts % 5 === 0) {
+                    console.log('current stage', stageLogs);
                     const nextStageLogs = yield sdk.getStageLogs(id, nextStage.name);
+                    console.log('next stage', nextStageLogs);
                     if (!(0, utils_1.isStageQueued)(nextStageLogs))
                         break;
                 }
