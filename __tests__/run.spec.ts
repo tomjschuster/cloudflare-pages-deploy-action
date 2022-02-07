@@ -45,10 +45,26 @@ describe('run', () => {
     expect(setOutput).toHaveBeenNthCalledWith(2, 'url', completedDeployment.url)
   })
 
-  it('exits with an error when deploy fails', async () => {
+  it('sets the job state to failed after a deploy failure', async () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(failedLiveDeployment)
 
     await run()
+
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets the job state to failed after a runtime error', async () => {
+    ;(deploy as jest.Mock).mockRejectedValue(new Error('foo'))
+
+    await expect(run()).rejects.toEqual(new Error('foo'))
+
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets the job state to failed after an unexpected error', async () => {
+    ;(deploy as jest.Mock).mockRejectedValue(1)
+
+    await expect(run()).rejects.toEqual(1)
 
     expect(setFailed).toHaveBeenCalled()
   })

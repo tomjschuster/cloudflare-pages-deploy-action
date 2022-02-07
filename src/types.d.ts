@@ -108,5 +108,3 @@ export type StageLog = {
   timestamp: string
   message: string
 }
-
-export type StagePollIntervalConfig = { [key in StageName]: number }

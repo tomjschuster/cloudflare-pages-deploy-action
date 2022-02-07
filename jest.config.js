@@ -6,4 +6,9 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
   },
   verbose: true,
+  collectCoverageFrom: ['src/**/*.{ts,tsx}'],
+  coveragePathIgnorePatterns: [
+    // Tested by build-test.test workflow job
+    'src/main.ts',
+  ],
 }
