@@ -19,7 +19,7 @@ export type SdkConfig = {
 }
 
 export type Sdk = {
-  getProject(name: string): Promise<Project>
+  getProject(): Promise<Project>
   createDeployment(): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
   getStageLogs(deploymentId: string, stageName: StageName): Promise<StageLogsResult>
@@ -33,7 +33,9 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
         'X-Auth-Key': apiKey,
         'X-Auth-Email': email,
       },
-    }).then((res) => (res.ok ? res.json() : Promise.reject(res)))) as ApiResult<T>
+    }).then((res) =>
+      res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
+    )) as ApiResult<T>
 
     if (!result.success) return Promise.reject(new CloudFlareApiError(result))
 
@@ -65,7 +67,7 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 }
 
 function projectPath(accountId: string, projectName: string, path: string): string {
-  return `/accounts/${accountId}/pages/projects/${projectName}/${path}`
+  return `/accounts/${accountId}/pages/projects/${projectName}${path}`
 }
 
 export class CloudFlareApiError extends Error {
@@ -82,5 +84,5 @@ export class CloudFlareApiError extends Error {
 
 function formatApiErrors(errors: ApiErrorEntry[]): string {
   const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
-  return `[Cloudflare API Error]:\n${apiErrors}`
+  return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]'
 }

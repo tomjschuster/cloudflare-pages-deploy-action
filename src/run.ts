@@ -5,13 +5,22 @@ import { Deployment, StageName } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
-  const config = getSdkConfigFromInput()
+  let deployment: Deployment
 
-  const sdk = createSdk(config)
+  try {
+    const config = getSdkConfigFromInput()
 
-  const deployment = await deploy(sdk)
-  setOutputFromDeployment(deployment)
+    const sdk = createSdk(config)
 
+    deployment = await deploy(sdk)
+    setOutputFromDeployment(deployment)
+  } catch (e) {
+    setFailed(e instanceof Error ? e.message : `${e}`)
+
+    console.log(RUNTIME_ERROR_MESSAGE)
+
+    return Promise.reject(e)
+  }
   checkDeployment(deployment)
 }
 
@@ -38,3 +47,5 @@ function checkDeployment({ latest_stage }: Deployment): void {
 function failedDeployMessage(stageName: StageName): string {
   return `Deployment failed on stage: ${stageName}. See log output above for more information.`
 }
+
+const RUNTIME_ERROR_MESSAGE = `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to https://dash.cloudflare.com and visit your Pages dashboard for more details.`

@@ -1,6 +1,6 @@
 import { Deployment, StageLogsResult } from '../src/types'
 
-export const initialLiveDeployment: Deployment = {
+export const initialLiveDeploymentUnexpectedStatus: Deployment = {
   id: 'a50b60b9-ac32-4279-9e53-2ad913a94a03',
   short_id: 'a50b60b9',
   project_id: 'efbefa69-f960-4cb5-a435-38c3a6340ab1',
@@ -43,6 +43,12 @@ export const initialLiveDeployment: Deployment = {
       status: 'idle',
     },
     {
+      name: 'test',
+      started_on: null,
+      ended_on: null,
+      status: 'idle',
+    },
+    {
       name: 'build',
       started_on: null,
       ended_on: null,
@@ -75,7 +81,7 @@ export const initialLiveDeployment: Deployment = {
   aliases: null,
 }
 
-export const completeLiveDeployment: Deployment = {
+export const completeLiveDeploymentUnexpectedStatus: Deployment = {
   id: 'a50b60b9-ac32-4279-9e53-2ad913a94a03',
   short_id: 'a50b60b9',
   project_id: 'efbefa69-f960-4cb5-a435-38c3a6340ab1',
@@ -86,7 +92,7 @@ export const completeLiveDeployment: Deployment = {
   modified_on: '2022-02-02T01:31:35.429941Z',
   latest_stage: {
     name: 'deploy',
-    started_on: '2022-02-01T15:08:44.121893Z',
+    started_on: '2022-02-01T15:08:44.349227Z',
     ended_on: '2022-02-01T15:08:50.567074Z',
     status: 'success',
   },
@@ -118,14 +124,20 @@ export const completeLiveDeployment: Deployment = {
       status: 'success',
     },
     {
+      name: 'test',
+      started_on: null,
+      ended_on: null,
+      status: 'skipped',
+    },
+    {
       name: 'build',
       started_on: '2022-02-01T15:06:32.563318Z',
-      ended_on: '2022-02-01T15:08:44.121893Z',
+      ended_on: '2022-02-01T15:08:44.349227Z',
       status: 'success',
     },
     {
       name: 'deploy',
-      started_on: '2022-02-01T15:08:44.121893Z',
+      started_on: '2022-02-01T15:08:44.349227Z',
       ended_on: '2022-02-01T15:08:50.567074Z',
       status: 'success',
     },
@@ -150,7 +162,7 @@ export const completeLiveDeployment: Deployment = {
   aliases: null,
 }
 
-export const activeQueuedLogs: StageLogsResult = {
+export const activeQueuedLogsUnexpectedStatus: StageLogsResult = {
   name: 'queued',
   started_on: '2022-02-01T15:04:23.016698Z',
   ended_on: null,
@@ -167,7 +179,7 @@ export const activeQueuedLogs: StageLogsResult = {
   ],
 }
 
-export const completeQueuedLogs: StageLogsResult = {
+export const completeQueuedLogsUnexpectedStatus: StageLogsResult = {
   name: 'queued',
   started_on: '2022-02-01T15:04:23.016698Z',
   ended_on: '2022-02-01T15:04:22.987058Z',
@@ -189,7 +201,7 @@ export const completeQueuedLogs: StageLogsResult = {
   ],
 }
 
-export const activeInitializeLogs: StageLogsResult = {
+export const activeInitializeLogsUnexpectedStatus: StageLogsResult = {
   name: 'initialize',
   started_on: '2022-02-01T15:04:22.987058Z',
   ended_on: null,
@@ -206,7 +218,7 @@ export const activeInitializeLogs: StageLogsResult = {
   ],
 }
 
-export const completeInitializeLogs: StageLogsResult = {
+export const completeInitializeLogsUnexpectedStatus: StageLogsResult = {
   name: 'initialize',
   started_on: '2022-02-01T15:04:22.987058Z',
   ended_on: '2022-02-01T15:06:30.987713Z',
@@ -228,7 +240,7 @@ export const completeInitializeLogs: StageLogsResult = {
   ],
 }
 
-export const activeCloneRepoLogs: StageLogsResult = {
+export const activeCloneRepoLogsUnexpectedStatus: StageLogsResult = {
   name: 'clone_repo',
   started_on: '2022-02-01T15:06:30.987713Z',
   ended_on: null,
@@ -245,7 +257,7 @@ export const activeCloneRepoLogs: StageLogsResult = {
   ],
 }
 
-export const completeCloneRepoLogs: StageLogsResult = {
+export const completeCloneRepoLogsUnexpectedStatus: StageLogsResult = {
   name: 'clone_repo',
   started_on: '2022-02-01T15:06:30.987713Z',
   ended_on: '2022-02-01T15:06:32.563318Z',
@@ -267,7 +279,18 @@ export const completeCloneRepoLogs: StageLogsResult = {
   ],
 }
 
-export const activeBuildLogs: StageLogsResult = {
+export const skippedTestLogsUnexpectedStatus: StageLogsResult = {
+  name: 'test',
+  started_on: null,
+  ended_on: null,
+  status: 'skipped',
+  start: 0,
+  end: 0,
+  total: 0,
+  data: [],
+}
+
+export const activeBuildLogsUnexpectedStatus: StageLogsResult = {
   name: 'build',
   started_on: '2022-02-01T15:06:32.563318Z',
   ended_on: null,
@@ -278,33 +301,16 @@ export const activeBuildLogs: StageLogsResult = {
   data: [
     {
       id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
+      timestamp: '2022-02-01T15:06:32.563318Z',
       message: 'Installing dependencies',
     },
   ],
 }
 
-export const stillActiveBuildLogs: StageLogsResult = {
+export const completeBuildLogsUnexpectedStatus: StageLogsResult = {
   name: 'build',
   started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
-  total: 1,
-  data: [
-    {
-      id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
-      message: 'Installing dependencies',
-    },
-  ],
-}
-
-export const completeBuildLogs: StageLogsResult = {
-  name: 'build',
-  started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: '2022-02-01T15:08:44.121893Z',
+  ended_on: '2022-02-01T15:08:44.349227Z',
   status: 'success',
   start: 0,
   end: 1,
@@ -312,7 +318,7 @@ export const completeBuildLogs: StageLogsResult = {
   data: [
     {
       id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
+      timestamp: '2022-02-01T15:06:32.563318Z',
       message: 'Installing dependencies',
     },
     {
@@ -323,9 +329,9 @@ export const completeBuildLogs: StageLogsResult = {
   ],
 }
 
-export const activeDeployLogs: StageLogsResult = {
+export const activeDeployLogsUnexpectedStatus: StageLogsResult = {
   name: 'deploy',
-  started_on: '2022-02-01T15:08:44.121893Z',
+  started_on: '2022-02-01T15:08:44.349227Z',
   ended_on: null,
   status: 'active',
   start: 0,
@@ -334,15 +340,15 @@ export const activeDeployLogs: StageLogsResult = {
   data: [
     {
       id: 0,
-      timestamp: '2022-02-01T15:08:44.121893Z',
+      timestamp: '2022-02-01T15:08:44.349227Z',
       message: "Deploying your site to Cloudflare's global network...",
     },
   ],
 }
 
-export const completeDeployLogs: StageLogsResult = {
+export const completeDeployLogsUnexpectedStatus: StageLogsResult = {
   name: 'deploy',
-  started_on: '2022-02-01T15:08:44.121893Z',
+  started_on: '2022-02-01T15:08:44.349227Z',
   ended_on: '2022-02-01T15:08:50.567074Z',
   status: 'success',
   start: 0,
@@ -351,7 +357,7 @@ export const completeDeployLogs: StageLogsResult = {
   data: [
     {
       id: 0,
-      timestamp: '2022-02-01T15:08:44.121893Z',
+      timestamp: '2022-02-01T15:08:44.349227Z',
       message: "Deploying your site to Cloudflare's global network...",
     },
     {

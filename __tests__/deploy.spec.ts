@@ -1,7 +1,6 @@
 import * as actionsCore from '@actions/core'
-import { deploy } from '../src/deploy'
+import { deploy, stagePollIntervalEnvName } from '../src/deploy'
 import { Sdk } from '../src/sdk'
-import { StagePollIntervalConfig } from '../src/types'
 import {
   buildLogs,
   cloneRepoLogs,
@@ -34,7 +33,39 @@ import {
   completeLiveDeployment,
   completeQueuedLogs,
   initialLiveDeployment,
+  stillActiveBuildLogs,
 } from '../__fixtures__/liveDeployment'
+import {
+  activeBuildLogsUnexpectedStage,
+  activeCloneRepoLogsUnexpectedStage,
+  activeDeployLogsUnexpectedStage,
+  activeInitializeLogsUnexpectedStage,
+  activeQueuedLogsUnexpectedStage,
+  activeTestLogsUnexpectedStage,
+  completeBuildLogsUnexpectedStage,
+  completeCloneRepoLogsUnexpectedStage,
+  completeDeployLogsUnexpectedStage,
+  completeInitializeLogsUnexpectedStage,
+  completeLiveDeploymentUnexpectedStage,
+  completeQueuedLogsUnexpectedStage,
+  completeTestLogsUnexpectedStage,
+  initialLiveDeploymentUnexpectedStage,
+} from '../__fixtures__/liveDeploymentUnexpectedStage'
+import {
+  activeBuildLogsUnexpectedStatus,
+  activeCloneRepoLogsUnexpectedStatus,
+  activeDeployLogsUnexpectedStatus,
+  activeInitializeLogsUnexpectedStatus,
+  activeQueuedLogsUnexpectedStatus,
+  completeBuildLogsUnexpectedStatus,
+  completeCloneRepoLogsUnexpectedStatus,
+  completeDeployLogsUnexpectedStatus,
+  completeInitializeLogsUnexpectedStatus,
+  completeLiveDeploymentUnexpectedStatus,
+  completeQueuedLogsUnexpectedStatus,
+  initialLiveDeploymentUnexpectedStatus,
+  skippedTestLogsUnexpectedStatus,
+} from '../__fixtures__/liveDeploymentUnexpectedStatus'
 import { noStageDeployment } from '../__fixtures__/noStageDeployment'
 import { oneStageDeployLogs, oneStageDeployment } from '../__fixtures__/oneStageDeployment'
 
@@ -45,15 +76,8 @@ const getStageLogs: jest.Mock<ReturnType<Sdk['getStageLogs']>> = jest.fn()
 
 const sdk = { getProject, createDeployment, getDeploymentInfo, getStageLogs }
 
-const pollConfig: StagePollIntervalConfig = {
-  queued: 0,
-  initialize: 0,
-  clone_repo: 0,
-  build: 0,
-  deploy: 0,
-}
-
 describe('deploy', () => {
+  const env = process.env
   let consoleSpy: jest.SpyInstance
   let startGroupSpy: jest.SpyInstance
   let endGroupSpy: jest.SpyInstance
@@ -63,6 +87,13 @@ describe('deploy', () => {
     consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined)
     startGroupSpy = jest.spyOn(actionsCore, 'startGroup').mockImplementation(() => undefined)
     endGroupSpy = jest.spyOn(actionsCore, 'endGroup').mockImplementation(() => undefined)
+    ;['queued', 'initialize', 'clone_repo', 'test', 'build', 'deploy'].forEach((name) => {
+      process.env[stagePollIntervalEnvName(name)] = '0'
+    })
+  })
+
+  afterAll(() => {
+    process.env = env
   })
 
   it('logs live deployments', async () => {
@@ -74,13 +105,14 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(activeCloneRepoLogs)
     sdk.getStageLogs.mockResolvedValueOnce(completeCloneRepoLogs)
     sdk.getStageLogs.mockResolvedValueOnce(activeBuildLogs)
+    sdk.getStageLogs.mockResolvedValueOnce(stillActiveBuildLogs)
     sdk.getStageLogs.mockResolvedValueOnce(completeBuildLogs)
     sdk.getStageLogs.mockResolvedValueOnce(activeDeployLogs)
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeployment)
 
-    await expect(deploy(sdk, pollConfig)).resolves.toEqual(completeLiveDeployment)
-    expect(sdk.getStageLogs).toHaveBeenCalledTimes(10)
+    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeployment)
+    expect(sdk.getStageLogs).toHaveBeenCalledTimes(11)
     // extra log for build
     expect(consoleSpy).toHaveBeenCalledTimes(11)
     expect(startGroupSpy).toHaveBeenCalledTimes(5)
@@ -100,7 +132,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeployment)
 
-    await expect(deploy(sdk, pollConfig)).resolves.toEqual(completeLiveDeployment)
+    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeployment)
     // 1 call for queued stage, 2 logs for each other stage
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(9)
     // Skip queued stage, 2 logs for each other stage, extra log for build
@@ -158,12 +190,64 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(failedFailureBuildLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(failedLiveDeployment)
 
-    await expect(deploy(sdk, pollConfig)).resolves.toEqual(failedLiveDeployment)
+    await expect(deploy(sdk)).resolves.toEqual(failedLiveDeployment)
     // 1 call for queued stage, 2 logs for each other stage, skip deploy
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(7)
     // Skip queued stage, 2 logs for each other stage, extra log for build, skip deploy
     expect(consoleSpy).toHaveBeenCalledTimes(7)
     expect(startGroupSpy).toHaveBeenCalledTimes(3)
     expect(endGroupSpy).toHaveBeenCalledTimes(3)
+  })
+
+  it('handles unknown stages', async () => {
+    sdk.createDeployment.mockResolvedValueOnce(initialLiveDeploymentUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(activeQueuedLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(completeQueuedLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(activeInitializeLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(completeInitializeLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(activeCloneRepoLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(completeCloneRepoLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(activeTestLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(completeTestLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(activeBuildLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(completeBuildLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(activeDeployLogsUnexpectedStage)
+    sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogsUnexpectedStage)
+    sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStage)
+
+    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeploymentUnexpectedStage)
+    expect(sdk.getStageLogs).toHaveBeenCalledTimes(12)
+    // extra log for build
+    expect(consoleSpy).toHaveBeenCalledTimes(13)
+    expect(startGroupSpy).toHaveBeenCalledTimes(6)
+    expect(endGroupSpy).toHaveBeenCalledTimes(6)
+  })
+
+  it('handles unknown statuses', async () => {
+    sdk.createDeployment.mockResolvedValueOnce(initialLiveDeploymentUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(activeQueuedLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(completeQueuedLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(activeInitializeLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(completeInitializeLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(activeCloneRepoLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(completeCloneRepoLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(activeBuildLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(completeBuildLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(activeDeployLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogsUnexpectedStatus)
+    sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStatus)
+
+    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeploymentUnexpectedStatus)
+    expect(sdk.getStageLogs).toHaveBeenCalledTimes(16)
+    // extra log for build
+    expect(consoleSpy).toHaveBeenCalledTimes(11)
+    expect(startGroupSpy).toHaveBeenCalledTimes(6)
+    expect(endGroupSpy).toHaveBeenCalledTimes(6)
   })
 })
