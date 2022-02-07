@@ -1,6 +1,9 @@
 name: 'Deploy a Cloudflare Pages Project'
-description: 'A GitHub Action to deploy a CloudFlare Pages Project'
+description: 'Trigger a Cloudflare Pages deployment and tracks its progress across all stages.'
 author: 'Tom Schuster'
+branding:
+  icon: 'upload-cloud'
+  color: 'orange'
 inputs:
   api-key:
     description: 'API key generated on the Cloudflare "My Account" page'
