@@ -1,6 +1,13 @@
 import fetch from 'node-fetch'
-import { CloudFlareApiError } from './errors'
-import { ApiResult, Deployment, KnownStageName, Project, StageLogsResult, StageName } from './types'
+import {
+  ApiErrorEntry,
+  ApiResult,
+  Deployment,
+  KnownStageName,
+  Project,
+  StageLogsResult,
+  StageName,
+} from './types'
 
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4'
 
@@ -59,4 +66,21 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 
 function projectPath(accountId: string, projectName: string, path: string): string {
   return `/accounts/${accountId}/pages/projects/${projectName}/${path}`
+}
+
+export class CloudFlareApiError extends Error {
+  result: ApiResult<unknown>
+
+  constructor(result: ApiResult<unknown>) {
+    super(formatApiErrors(result.errors || []))
+
+    Object.setPrototypeOf(this, CloudFlareApiError.prototype)
+
+    this.result = result
+  }
+}
+
+function formatApiErrors(errors: ApiErrorEntry[]): string {
+  const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
+  return `[Cloudflare API Error]:\n${apiErrors}`
 }
