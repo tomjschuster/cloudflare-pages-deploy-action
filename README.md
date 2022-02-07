@@ -1,5 +1,6 @@
 <p align="center">
   <a href="https://github.com/tomjschuster/cloudflare-pages-deploy-action/actions"><img alt="typescript-action status" src="https://github.com/tomjschuster/cloudflare-pages-deploy-action/workflows/build-test/badge.svg"></a>
+  <a href="https://coveralls.io/github/tomjschuster/cloudflare-pages-deploy-action?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/tomjschuster/cloudflare-pages-deploy-action/badge.svg?branch=main"/></a>
 </p>
 
 # Cloudflare Pages Deploy Action
@@ -12,7 +13,7 @@ Triggers a [Cloudflare Pages](https://pages.cloudflare.com/) deployment for a pr
 
 - Because the Cloudflare v4 API [`Create deployment`](https://api.cloudflare.com/#pages-deployment-create-deployment) endpoint only supports creating production deployments, **this action always deploys your production branch**. Therefore, this action should only be used on pushes to the branch configured as your Pages project's **production branch** (`main`, by default).
 - This action does not create any preview deployments.
-- This action does not create any comments on any pull requests
+- This action does not create any comments on any pull requests.
 - This action does not upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
 
 ### Alternatives
@@ -31,8 +32,8 @@ All inputs are required. It is strongly recommended that you use [Encrypted Secr
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | account-id   | Your Cloudflare account id. This is the id in the URL of Cloudflare's dashboard. You can also run the command `wrangler whoami`.   |
 | api-key      | Your [Cloudflare Global API Key](https://developers.cloudflare.com/api/keys#view-your-api-key) (Pages does not accept API tokens). |
-| email        | The email associated with your Cloudflare account                                                                                  |
-| project-name | The name of your Pages project                                                                                                     |
+| email        | The email associated with your Cloudflare account.                                                                                 |
+| project-name | The name of your Pages project.                                                                                                    |
 
 ## Outputs
 
