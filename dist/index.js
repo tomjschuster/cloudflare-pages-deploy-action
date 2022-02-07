@@ -244,7 +244,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                     'X-Auth-Key': apiKey,
                     'X-Auth-Email': email,
                 },
-            }).then((res) => res.ok ? res.json() : Promise.reject(new Error(res.statusText))));
+            }).then((res) => res.ok || res.status === 304 ? res.json() : Promise.reject(new Error(res.statusText))));
             if (!result.success)
                 return Promise.reject(new CloudFlareApiError(result));
             return result.result;

@@ -100,6 +100,16 @@ describe('sdk', () => {
     )
   })
 
+  it('rejects when status is 304', async () => {
+    ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 304,
+      json: jest.fn(() => Promise.resolve(success)),
+    })
+
+    await expect(sdk.createDeployment()).resolves.toEqual(null)
+  })
+
   it('rejects with an API error when response is not successful', async () => {
     ;(fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,

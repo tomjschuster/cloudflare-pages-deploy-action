@@ -34,7 +34,7 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
         'X-Auth-Email': email,
       },
     }).then((res) =>
-      res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
+      res.ok || res.status === 304 ? res.json() : Promise.reject(new Error(res.statusText)),
     )) as ApiResult<T>
 
     if (!result.success) return Promise.reject(new CloudFlareApiError(result))
