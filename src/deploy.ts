@@ -1,7 +1,7 @@
 import { endGroup, startGroup } from '@actions/core'
 import { Sdk } from './sdk'
 import { Deployment, Stage, StageLog, StageLogsResult, StageName } from './types'
-import { isStageComplete, isStageQueued, isStageSuccess, wait } from './utils'
+import { isQueuedStage, isStageComplete, isStageIdle, isStageSuccess, wait } from './utils'
 
 export async function deploy(sdk: Sdk): Promise<Deployment> {
   const deployment = await sdk.createDeployment()
@@ -17,6 +17,7 @@ async function logDeploymentStages({ id, stages }: Deployment, sdk: Sdk): Promis
     const nextStage: Stage | undefined = stages[i + 1]
 
     let stageLogs: StageLogsResult = await sdk.getStageLogs(id, name)
+    let nextStageLogs: StageLogsResult | undefined
     let lastLogId: number | undefined
 
     if (shouldSkip(stageLogs)) continue
@@ -33,33 +34,34 @@ async function logDeploymentStages({ id, stages }: Deployment, sdk: Sdk): Promis
 
       if (isStageComplete(stageLogs)) break
 
-      // Loop logic assumes that every deploy stage will end with a status of failure or complete.
+      await wait(getPollInterval(stageLogs))
+
+      // Loop logic assumes that every deploy stage will end with a status of failure or success.
       // Since this is not explicitly stated in the API docs, we defensively peek at the next stage
       // every 5 polls to see if the next stage has started to reduce the probability of an infinite
       // loop until the the job times out.
-      if (nextStage && pollAttempts % 5 === 0) {
-        console.log('current stage', stageLogs)
-        const nextStageLogs = await sdk.getStageLogs(id, nextStage.name)
-        console.log('next stage', nextStageLogs)
-        if (!isStageQueued(nextStageLogs)) break
-      }
-
-      await wait(getPollInterval(stageLogs))
+      nextStageLogs =
+        nextStage && pollAttempts++ % 5 === 0
+          ? await sdk.getStageLogs(id, nextStage.name)
+          : undefined
 
       lastLogId = getLastLogId(stageLogs)
       stageLogs = await sdk.getStageLogs(id, name)
-      pollAttempts++
+
+      if (nextStageLogs && !isStageComplete(stageLogs) && !isStageIdle(nextStageLogs)) {
+        break
+      }
     }
 
     endGroup()
 
     // If stage fails, following stages will never complete
-    if (!isStageSuccess(stageLogs)) return
+    if (!isStageSuccess(stageLogs) && (!nextStageLogs || isStageIdle(nextStageLogs))) return
   }
 }
 
 function shouldSkip(stage: StageLogsResult): boolean {
-  return stage.name === 'queued' && stage.status === 'success'
+  return isQueuedStage(stage) && isStageSuccess(stage)
 }
 
 function displayNewStage(stageName: StageName): string {

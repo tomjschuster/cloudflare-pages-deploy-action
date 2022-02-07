@@ -223,7 +223,7 @@ describe('deploy', () => {
     expect(endGroupSpy).toHaveBeenCalledTimes(6)
   })
 
-  it.skip('handles unknown statuses', async () => {
+  it('handles unknown statuses', async () => {
     sdk.createDeployment.mockResolvedValueOnce(initialLiveDeploymentUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(activeQueuedLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(completeQueuedLogsUnexpectedStatus)
@@ -237,16 +237,17 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(activeBuildLogsUnexpectedStatus)
+    sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(completeBuildLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(activeDeployLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogsUnexpectedStatus)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStatus)
 
     await expect(deploy(sdk)).resolves.toEqual(completeLiveDeploymentUnexpectedStatus)
-    expect(sdk.getStageLogs).toHaveBeenCalledTimes(12)
+    expect(sdk.getStageLogs).toHaveBeenCalledTimes(16)
     // extra log for build
-    expect(consoleSpy).toHaveBeenCalledTimes(6)
-    expect(startGroupSpy).toHaveBeenCalledTimes(4)
-    expect(endGroupSpy).toHaveBeenCalledTimes(4)
+    expect(consoleSpy).toHaveBeenCalledTimes(11)
+    expect(startGroupSpy).toHaveBeenCalledTimes(6)
+    expect(endGroupSpy).toHaveBeenCalledTimes(6)
   })
 })

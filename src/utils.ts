@@ -1,7 +1,11 @@
 import { Stage, StageLogsResult } from './types.d'
 
-export function isStageQueued(stage: Stage | StageLogsResult): boolean {
-  return stage.status === 'queued'
+export function isQueuedStage(stage: Stage | StageLogsResult): boolean {
+  return stage.name === 'queued'
+}
+
+export function isStageIdle(stage: Stage | StageLogsResult): boolean {
+  return stage.status === 'idle'
 }
 
 export function isStageSuccess(stage: Stage | StageLogsResult): boolean {

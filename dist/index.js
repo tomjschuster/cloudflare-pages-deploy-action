@@ -33,6 +33,7 @@ function logDeploymentStages({ id, stages }, sdk) {
             const { name } = stages[i];
             const nextStage = stages[i + 1];
             let stageLogs = yield sdk.getStageLogs(id, name);
+            let nextStageLogs;
             let lastLogId;
             if (shouldSkip(stageLogs))
                 continue;
@@ -46,31 +47,30 @@ function logDeploymentStages({ id, stages }, sdk) {
                     console.log(log.message);
                 if ((0, utils_1.isStageComplete)(stageLogs))
                     break;
-                // Loop logic assumes that every deploy stage will end with a status of failure or complete.
+                yield (0, utils_1.wait)(getPollInterval(stageLogs));
+                // Loop logic assumes that every deploy stage will end with a status of failure or success.
                 // Since this is not explicitly stated in the API docs, we defensively peek at the next stage
                 // every 5 polls to see if the next stage has started to reduce the probability of an infinite
                 // loop until the the job times out.
-                if (nextStage && pollAttempts % 5 === 0) {
-                    console.log('current stage', stageLogs);
-                    const nextStageLogs = yield sdk.getStageLogs(id, nextStage.name);
-                    console.log('next stage', nextStageLogs);
-                    if (!(0, utils_1.isStageQueued)(nextStageLogs))
-                        break;
-                }
-                yield (0, utils_1.wait)(getPollInterval(stageLogs));
+                nextStageLogs =
+                    nextStage && pollAttempts++ % 5 === 0
+                        ? yield sdk.getStageLogs(id, nextStage.name)
+                        : undefined;
                 lastLogId = getLastLogId(stageLogs);
                 stageLogs = yield sdk.getStageLogs(id, name);
-                pollAttempts++;
+                if (nextStageLogs && !(0, utils_1.isStageComplete)(stageLogs) && !(0, utils_1.isStageIdle)(nextStageLogs)) {
+                    break;
+                }
             }
             (0, core_1.endGroup)();
             // If stage fails, following stages will never complete
-            if (!(0, utils_1.isStageSuccess)(stageLogs))
+            if (!(0, utils_1.isStageSuccess)(stageLogs) && (!nextStageLogs || (0, utils_1.isStageIdle)(nextStageLogs)))
                 return;
         }
     });
 }
 function shouldSkip(stage) {
-    return stage.name === 'queued' && stage.status === 'success';
+    return (0, utils_1.isQueuedStage)(stage) && (0, utils_1.isStageSuccess)(stage);
 }
 function displayNewStage(stageName) {
     switch (stageName) {
@@ -295,11 +295,15 @@ function formatApiErrors(errors) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = exports.isStageComplete = exports.isStageSuccess = exports.isStageQueued = void 0;
-function isStageQueued(stage) {
-    return stage.status === 'queued';
+exports.wait = exports.isStageComplete = exports.isStageSuccess = exports.isStageIdle = exports.isQueuedStage = void 0;
+function isQueuedStage(stage) {
+    return stage.name === 'queued';
 }
-exports.isStageQueued = isStageQueued;
+exports.isQueuedStage = isQueuedStage;
+function isStageIdle(stage) {
+    return stage.status === 'idle';
+}
+exports.isStageIdle = isStageIdle;
 function isStageSuccess(stage) {
     return stage.status === 'success';
 }
