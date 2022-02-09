@@ -1,5 +1,5 @@
 name: 'build-test'
-on: # rebuild any PRs and main branch changes
+on:
   pull_request:
   push:
     branches:
@@ -7,7 +7,7 @@ on: # rebuild any PRs and main branch changes
       - 'releases/*'
 
 jobs:
-  build: # make sure build/ci work properly
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -21,14 +21,26 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           flag-name: unit
 
-  # test: # make sure the action works on a clean machine without building
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: ./
-  #       with:
-  #         account-id: '${{ secrets.CF_ACCOUNT_ID }}'
-  #         api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
-  #         email: '${{ secrets.CF_EMAIL }}'
-  #         project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
-  #         branch: preview-test
+  test-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
+          production: true
+
+  test-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
+          branch: preview-test

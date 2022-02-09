@@ -17,8 +17,10 @@ inputs:
   project-name:
     description: 'Name of Cloudflare Pages project to deploy'
     required: true
+  production:
+    description: 'Indicates that the production build of the pages project should be deployed.'
   branch:
-    description: 'Name of the branc to be deployed'
+    description: 'Name of the branch to be deployed. Cannot be used together with "production".'
 outputs:
   deploymentId:
     description: 'Identifier of the completed deployment'

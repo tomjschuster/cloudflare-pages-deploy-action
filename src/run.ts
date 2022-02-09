@@ -1,16 +1,10 @@
-import { getInput, setFailed, setOutput } from '@actions/core'
-import * as github from '@actions/github'
+import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
 import { deploy } from './deploy'
 import createSdk, { SdkConfig } from './sdk'
 import { Deployment, StageName } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
-  console.log('CONTEXT')
-  console.log(github.context)
-  console.log('pull_request')
-  console.log(github.context.payload.pull_request)
-
   let deployment: Deployment
 
   try {
@@ -40,7 +34,27 @@ function getSdkConfigFromInput(): SdkConfig {
 }
 
 function getBranch(): string | undefined {
-  return getInput('branch')
+  const production = getBooleanInput('production')
+  const branch = getInput('branch')
+
+  const inputCount = [production, branch].filter((x) => x).length
+
+  if (inputCount > 1) {
+    const error = new Error('Inputs "production" and "branch" cannot be used together.')
+    setFailed(error)
+    throw error
+  }
+
+  if (inputCount === 0) {
+    const error = new Error(
+      'Must provide exactly one of the following inputs: "production", "branch"',
+    )
+    setFailed(error)
+    throw error
+  }
+
+  if (production) return undefined
+  return branch
 }
 
 function setOutputFromDeployment(deployment: Deployment): void {
