@@ -12,7 +12,7 @@ export async function run(): Promise<void> {
 
     const sdk = createSdk(config)
 
-    deployment = await deploy(sdk)
+    deployment = await deploy(sdk, getBranch())
     setOutputFromDeployment(deployment)
   } catch (e) {
     setFailed(e instanceof Error ? e.message : `${e}`)
@@ -31,6 +31,10 @@ function getSdkConfigFromInput(): SdkConfig {
     email: getInput('email', { required: true }),
     projectName: getInput('project-name', { required: true }),
   }
+}
+
+function getBranch(): string | undefined {
+  return getInput('branch')
 }
 
 function setOutputFromDeployment(deployment: Deployment): void {

@@ -23,6 +23,13 @@ const emptyFailure: ApiResult<null> = {
   messages: [],
 }
 
+function mockCfFetchSuccess(result: any): void {
+  ;(fetch as jest.Mock).mockResolvedValueOnce({
+    ok: true,
+    json: jest.fn(() => Promise.resolve({ success: true, result: result })),
+  })
+}
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 jest.mock('node-fetch', () => ({
   __esModule: true,
@@ -35,6 +42,8 @@ describe('sdk', () => {
   let sdk: Sdk
 
   beforeEach(() => {
+    jest.clearAllMocks()
+
     sdk = createSdk({
       accountId: '5790cddd-6172-4135-b275-2a64c49167d7',
       apiKey: '076758732de5497881a1cece814ff4faee9ab',
@@ -43,43 +52,173 @@ describe('sdk', () => {
     })
   })
 
+  const expectedBaseUrl =
+    'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project'
+
+  const expectedHeaders = {
+    'X-Auth-Email': 'name@example.com',
+    'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
+  }
+
   it('calls Get Project', async () => {
     await sdk.getProject()
-    expect(fetch).toHaveBeenCalledWith(
-      'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project',
+    expect(fetch).toHaveBeenCalledWith(expectedBaseUrl, {
+      headers: expectedHeaders,
+      method: 'GET',
+    })
+  })
+
+  it('calls Create Deployment', async () => {
+    await sdk.createDeployment()
+    expect(fetch).toHaveBeenCalledWith(`${expectedBaseUrl}/deployments`, {
+      headers: expectedHeaders,
+      method: 'POST',
+    })
+  })
+
+  it('creates, executes and deletes a deploy hook for Create Deployment with a branch', async () => {
+    const branch = 'foo'
+    const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
+    const deployId = '981d95c7-6a2f-491a-adee-09f74fbc38ce'
+
+    mockCfFetchSuccess({ hook_id: hookId })
+    mockCfFetchSuccess({ id: deployId })
+    mockCfFetchSuccess('ok')
+    mockCfFetchSuccess(success)
+
+    await sdk.createDeployment(branch)
+
+    expect(fetch).toHaveBeenCalledTimes(4)
+
+    expect(fetch).toHaveBeenNthCalledWith(1, `${expectedBaseUrl}/deploy_hooks`, {
+      headers: expectedHeaders,
+      body: expect.any(String),
+      method: 'POST',
+    })
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
       {
-        headers: {
-          'X-Auth-Email': 'name@example.com',
-          'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
-        },
+        headers: expectedHeaders,
+        method: 'POST',
+      },
+    )
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      {
+        headers: expectedHeaders,
+        method: 'DELETE',
+      },
+    )
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      4,
+      `${expectedBaseUrl}/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce`,
+      {
+        headers: expectedHeaders,
         method: 'GET',
       },
     )
   })
 
-  it('calls Create Deployment', async () => {
-    await sdk.createDeployment()
-    expect(fetch).toHaveBeenCalledWith(
-      'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project/deployments',
+  it('deletes a deploy hook for Create Deployment with a branch on failure', async () => {
+    const branch = 'foo'
+    const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
+
+    mockCfFetchSuccess({ hook_id: hookId })
+    ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+    })
+    mockCfFetchSuccess('ok')
+
+    await expect(sdk.createDeployment(branch)).rejects.toThrow()
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+
+    expect(fetch).toHaveBeenNthCalledWith(1, `${expectedBaseUrl}/deploy_hooks`, {
+      headers: expectedHeaders,
+      body: expect.any(String),
+      method: 'POST',
+    })
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
       {
-        headers: {
-          'X-Auth-Email': 'name@example.com',
-          'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
-        },
+        headers: expectedHeaders,
         method: 'POST',
       },
     )
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      {
+        headers: expectedHeaders,
+        method: 'DELETE',
+      },
+    )
+  })
+
+  it('logs hook error on delete deploy hook failure for Create Deployment with a branch on failure', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const branch = 'foo'
+    const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
+
+    mockCfFetchSuccess({ hook_id: hookId })
+    ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+    })
+    ;(fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+    })
+
+    await expect(sdk.createDeployment(branch)).rejects.toThrow()
+
+    expect(fetch).toHaveBeenCalledTimes(3)
+
+    expect(fetch).toHaveBeenNthCalledWith(1, `${expectedBaseUrl}/deploy_hooks`, {
+      headers: expectedHeaders,
+      body: expect.any(String),
+      method: 'POST',
+    })
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      {
+        headers: expectedHeaders,
+        method: 'POST',
+      },
+    )
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      {
+        headers: expectedHeaders,
+        method: 'DELETE',
+      },
+    )
+
+    expect(consoleError).toHaveBeenCalledTimes(1)
   })
 
   it('calls Get Deployment Info', async () => {
     await sdk.getDeploymentInfo('981d95c7-6a2f-491a-adee-09f74fbc38ce')
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce',
+      `${expectedBaseUrl}/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce`,
       {
-        headers: {
-          'X-Auth-Email': 'name@example.com',
-          'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
-        },
+        headers: expectedHeaders,
         method: 'GET',
       },
     )
@@ -89,12 +228,9 @@ describe('sdk', () => {
     await sdk.getStageLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', 'build')
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce/history/build/logs',
+      `${expectedBaseUrl}/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce/history/build/logs`,
       {
-        headers: {
-          'X-Auth-Email': 'name@example.com',
-          'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
-        },
+        headers: expectedHeaders,
         method: 'GET',
       },
     )

@@ -19,9 +19,9 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(186);
 const utils_1 = __nccwpck_require__(918);
-function deploy(sdk) {
+function deploy(sdk, branch) {
     return __awaiter(this, void 0, void 0, function* () {
-        const deployment = yield sdk.createDeployment();
+        const deployment = yield sdk.createDeployment(branch);
         yield logDeploymentStages(deployment, sdk);
         return yield sdk.getDeploymentInfo(deployment.id);
     });
@@ -177,7 +177,7 @@ function run() {
         try {
             const config = getSdkConfigFromInput();
             const sdk = (0, sdk_1.default)(config);
-            deployment = yield (0, deploy_1.deploy)(sdk);
+            deployment = yield (0, deploy_1.deploy)(sdk, getBranch());
             setOutputFromDeployment(deployment);
         }
         catch (e) {
@@ -196,6 +196,9 @@ function getSdkConfigFromInput() {
         email: (0, core_1.getInput)('email', { required: true }),
         projectName: (0, core_1.getInput)('project-name', { required: true }),
     };
+}
+function getBranch() {
+    return (0, core_1.getInput)('branch');
 }
 function setOutputFromDeployment(deployment) {
     (0, core_1.setOutput)('deployment-id', deployment.id);
@@ -233,10 +236,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.CloudFlareApiError = void 0;
+const nanoid_1 = __nccwpck_require__(592);
 const node_fetch_1 = __importDefault(__nccwpck_require__(429));
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
 function createSdk({ accountId, apiKey, email, projectName }) {
-    function fetchCf(path, method = 'GET') {
+    function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
             const result = (yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
@@ -244,6 +248,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                     'X-Auth-Key': apiKey,
                     'X-Auth-Email': email,
                 },
+                body,
             }).then((res) => res.ok ? res.json() : Promise.reject(new Error(res.statusText))));
             if (!result.success)
                 return Promise.reject(new CloudFlareApiError(result));
@@ -253,14 +258,51 @@ function createSdk({ accountId, apiKey, email, projectName }) {
     function getProject() {
         return fetchCf(projectPath(accountId, projectName, ''));
     }
-    function createDeployment() {
-        return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
+    function createDeployment(branch) {
+        if (!branch) {
+            return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
+        }
+        // Cloudflare API only supports triggering deployments for the production branch, however, it
+        // is possible to create deployments for any branch using ad-hoc web-hooks
+        // (CREATE/DELETE Deploy hook are undocumented so could break)
+        return createBranchDeploymentUsingDeployHook(branch);
     }
     function getDeploymentInfo(id) {
         return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`));
     }
     function getStageLogs(id, name) {
         return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`));
+    }
+    function createBranchDeploymentUsingDeployHook(branch) {
+        return __awaiter(this, void 0, void 0, function* () {
+            function createDeployHook(name, branch) {
+                return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
+            }
+            function triggerDeployHook(id) {
+                return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'POST');
+            }
+            function deleteDeployHook(id) {
+                return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
+            }
+            const name = `github-actions-temp-${(0, nanoid_1.nanoid)()}-${new Date().toISOString()}`;
+            const { hook_id } = yield createDeployHook(name, branch);
+            let deletedHook = false;
+            try {
+                const { id: deploymentId } = yield triggerDeployHook(hook_id);
+                // We only need the webhook to trigger a onetime deployment for the given branch
+                yield deleteDeployHook(hook_id);
+                deletedHook = true;
+                return yield getDeploymentInfo(deploymentId);
+            }
+            catch (e) {
+                // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
+                // so they know to delete it manually through the dashboard
+                if (!deletedHook) {
+                    yield deleteDeployHook(hook_id).catch(() => logHookDeleteError(name));
+                }
+                throw e;
+            }
+        });
     }
     return {
         getProject,
@@ -284,6 +326,9 @@ exports.CloudFlareApiError = CloudFlareApiError;
 function formatApiErrors(errors) {
     const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
     return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]';
+}
+function logHookDeleteError(name) {
+    console.error(`Failed to delete temporary deploy hook "${name}". Go to your Cloudflare Pages dashboard from https://dash.cloudflare.com and delete it manually through the Settings -> Builds and Deployments page`);
 }
 
 
@@ -6120,6 +6165,14 @@ module.exports = require("buffer");
 
 /***/ }),
 
+/***/ 113:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("crypto");
+
+/***/ }),
+
 /***/ 361:
 /***/ ((module) => {
 
@@ -6270,6 +6323,67 @@ try {
   }
 } catch (error) {}
 /* c8 ignore end */
+
+
+/***/ }),
+
+/***/ 592:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+let crypto = __nccwpck_require__(113)
+let { urlAlphabet } = __nccwpck_require__(651)
+const POOL_SIZE_MULTIPLIER = 128
+let pool, poolOffset
+let fillPool = bytes => {
+  if (!pool || pool.length < bytes) {
+    pool = Buffer.allocUnsafe(bytes * POOL_SIZE_MULTIPLIER)
+    crypto.randomFillSync(pool)
+    poolOffset = 0
+  } else if (poolOffset + bytes > pool.length) {
+    crypto.randomFillSync(pool)
+    poolOffset = 0
+  }
+  poolOffset += bytes
+}
+let random = bytes => {
+  fillPool((bytes -= 0))
+  return pool.subarray(poolOffset - bytes, poolOffset)
+}
+let customRandom = (alphabet, size, getRandom) => {
+  let mask = (2 << (31 - Math.clz32((alphabet.length - 1) | 1))) - 1
+  let step = Math.ceil((1.6 * mask * size) / alphabet.length)
+  return () => {
+    let id = ''
+    while (true) {
+      let bytes = getRandom(step)
+      let i = step
+      while (i--) {
+        id += alphabet[bytes[i] & mask] || ''
+        if (id.length === size) return id
+      }
+    }
+  }
+}
+let customAlphabet = (alphabet, size) => customRandom(alphabet, size, random)
+let nanoid = (size = 21) => {
+  fillPool((size -= 0))
+  let id = ''
+  for (let i = poolOffset - size; i < poolOffset; i++) {
+    id += urlAlphabet[pool[i] & 63]
+  }
+  return id
+}
+module.exports = { nanoid, customAlphabet, customRandom, urlAlphabet, random }
+
+
+/***/ }),
+
+/***/ 651:
+/***/ ((module) => {
+
+let urlAlphabet =
+  'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLF_GQZbfghjklqvwyzrict'
+module.exports = { urlAlphabet }
 
 
 /***/ }),

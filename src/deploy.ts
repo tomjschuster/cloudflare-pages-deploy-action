@@ -3,8 +3,8 @@ import { Sdk } from './sdk'
 import { Deployment, Stage, StageLog, StageLogsResult, StageName } from './types'
 import { isQueuedStage, isStageComplete, isStageIdle, isStageSuccess, wait } from './utils'
 
-export async function deploy(sdk: Sdk): Promise<Deployment> {
-  const deployment = await sdk.createDeployment()
+export async function deploy(sdk: Sdk, branch?: string): Promise<Deployment> {
+  const deployment = await sdk.createDeployment(branch)
 
   await logDeploymentStages(deployment, sdk)
 

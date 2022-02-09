@@ -11,6 +11,7 @@
     "lint": "eslint src/**/*.ts",
     "package": "ncc build --source-map --license licenses.txt",
     "test": "jest --coverage",
+    "test-watch": "jest --watch",
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test",
     "release": "standard-version"
   },
@@ -27,6 +28,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",
+    "nanoid": "^3.2.0",
     "node-fetch": "^3.2.0"
   },
   "devDependencies": {

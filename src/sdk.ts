@@ -1,7 +1,10 @@
-import fetch from 'node-fetch'
+import { nanoid } from 'nanoid'
+import fetch, { BodyInit } from 'node-fetch'
 import {
   ApiErrorEntry,
   ApiResult,
+  DeployHook,
+  DeployHookResult,
   Deployment,
   KnownStageName,
   Project,
@@ -20,19 +23,20 @@ export type SdkConfig = {
 
 export type Sdk = {
   getProject(): Promise<Project>
-  createDeployment(): Promise<Deployment>
+  createDeployment(branch?: string): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
   getStageLogs(deploymentId: string, stageName: StageName): Promise<StageLogsResult>
 }
 
 export default function createSdk({ accountId, apiKey, email, projectName }: SdkConfig): Sdk {
-  async function fetchCf<T>(path: string, method = 'GET'): Promise<T> {
+  async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
     const result = (await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
         'X-Auth-Key': apiKey,
         'X-Auth-Email': email,
       },
+      body,
     }).then((res) =>
       res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
     )) as ApiResult<T>
@@ -46,8 +50,15 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
     return fetchCf(projectPath(accountId, projectName, ''))
   }
 
-  function createDeployment(): Promise<Deployment> {
-    return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
+  function createDeployment(branch?: string): Promise<Deployment> {
+    if (!branch) {
+      return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
+    }
+
+    // Cloudflare API only supports triggering deployments for the production branch, however, it
+    // is possible to create deployments for any branch using ad-hoc web-hooks
+    // (CREATE/DELETE Deploy hook are undocumented so could break)
+    return createBranchDeploymentUsingDeployHook(branch)
   }
 
   function getDeploymentInfo(id: string): Promise<Deployment> {
@@ -56,6 +67,47 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 
   function getStageLogs(id: string, name: KnownStageName): Promise<StageLogsResult> {
     return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`))
+  }
+
+  async function createBranchDeploymentUsingDeployHook(branch: string): Promise<Deployment> {
+    function createDeployHook(name: string, branch: string): Promise<DeployHook> {
+      return fetchCf(
+        projectPath(accountId, projectName, '/deploy_hooks'),
+        'POST',
+        JSON.stringify({ name, branch }),
+      )
+    }
+
+    function triggerDeployHook(id: string): Promise<DeployHookResult> {
+      return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'POST')
+    }
+
+    function deleteDeployHook(id: string): Promise<void> {
+      return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE')
+    }
+
+    const name = `github-actions-temp-${nanoid()}-${new Date().toISOString()}`
+
+    const { hook_id } = await createDeployHook(name, branch)
+
+    let deletedHook = false
+
+    try {
+      const { id: deploymentId } = await triggerDeployHook(hook_id)
+
+      // We only need the webhook to trigger a onetime deployment for the given branch
+      await deleteDeployHook(hook_id)
+      deletedHook = true
+
+      return await getDeploymentInfo(deploymentId)
+    } catch (e) {
+      // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
+      // so they know to delete it manually through the dashboard
+      if (!deletedHook) {
+        await deleteDeployHook(hook_id).catch(() => logHookDeleteError(name))
+      }
+      throw e
+    }
   }
 
   return {
@@ -85,4 +137,10 @@ export class CloudFlareApiError extends Error {
 function formatApiErrors(errors: ApiErrorEntry[]): string {
   const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
   return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]'
+}
+
+function logHookDeleteError(name: string): void {
+  console.error(
+    `Failed to delete temporary deploy hook "${name}". Go to your Cloudflare Pages dashboard from https://dash.cloudflare.com and delete it manually through the Settings -> Builds and Deployments page`,
+  )
 }

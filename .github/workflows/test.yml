@@ -31,3 +31,4 @@ jobs:
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
           project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
+          branch: preview-test
