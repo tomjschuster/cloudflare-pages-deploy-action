@@ -249,7 +249,12 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                     'X-Auth-Email': email,
                 },
                 body,
-            }).then((res) => res.ok ? res.json() : Promise.reject(new Error(res.statusText))));
+            })
+                .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
+                .catch((e) => {
+                console.error(e);
+                return Promise.reject(e);
+            }));
             if (!result.success)
                 return Promise.reject(new CloudFlareApiError(result));
             return result.result;
@@ -275,6 +280,12 @@ function createSdk({ accountId, apiKey, email, projectName }) {
     }
     function createBranchDeploymentUsingDeployHook(branch) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('GETING PROJECT');
+            const project = yield getProject();
+            console.log({ project });
+            // Cloudflare API supports triggering production deployement without a webhook
+            if (branch === project.source.config.production_branch)
+                return yield createDeployment();
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
@@ -285,13 +296,19 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                 return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
             }
             const name = `github-actions-temp-${(0, nanoid_1.nanoid)()}-${new Date().toISOString()}`;
+            console.log('CREATING DEPLOY HOOK');
             const { hook_id } = yield createDeployHook(name, branch);
+            console.log({ hook_id });
             let deletedHook = false;
             try {
+                console.log('TRIGGERING DEPLOYMENT');
                 const { id: deploymentId } = yield triggerDeployHook(hook_id);
+                console.log({ deploymentId });
                 // We only need the webhook to trigger a onetime deployment for the given branch
+                console.log('DELETING DEPLOYMENT');
                 yield deleteDeployHook(hook_id);
                 deletedHook = true;
+                console.log('DELETED');
                 return yield getDeploymentInfo(deploymentId);
             }
             catch (e) {

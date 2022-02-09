@@ -37,9 +37,12 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
         'X-Auth-Email': email,
       },
       body,
-    }).then((res) =>
-      res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
-    )) as ApiResult<T>
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
+      .catch((e) => {
+        console.error(e)
+        return Promise.reject(e)
+      })) as ApiResult<T>
 
     if (!result.success) return Promise.reject(new CloudFlareApiError(result))
 
@@ -70,6 +73,13 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
   }
 
   async function createBranchDeploymentUsingDeployHook(branch: string): Promise<Deployment> {
+    console.log('GETING PROJECT')
+    const project = await getProject()
+    console.log({ project })
+
+    // Cloudflare API supports triggering production deployement without a webhook
+    if (branch === project.source.config.production_branch) return await createDeployment()
+
     function createDeployHook(name: string, branch: string): Promise<DeployHook> {
       return fetchCf(
         projectPath(accountId, projectName, '/deploy_hooks'),
@@ -88,17 +98,24 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 
     const name = `github-actions-temp-${nanoid()}-${new Date().toISOString()}`
 
+    console.log('CREATING DEPLOY HOOK')
+
     const { hook_id } = await createDeployHook(name, branch)
 
+    console.log({ hook_id })
     let deletedHook = false
 
     try {
+      console.log('TRIGGERING DEPLOYMENT')
       const { id: deploymentId } = await triggerDeployHook(hook_id)
+      console.log({ deploymentId })
 
       // We only need the webhook to trigger a onetime deployment for the given branch
+      console.log('DELETING DEPLOYMENT')
       await deleteDeployHook(hook_id)
       deletedHook = true
 
+      console.log('DELETED')
       return await getDeploymentInfo(deploymentId)
     } catch (e) {
       // If we faild to delete the hook, attempt to delete it, and let user know if delete fails

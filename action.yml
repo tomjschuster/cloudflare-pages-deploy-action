@@ -17,6 +17,8 @@ inputs:
   project-name:
     description: 'Name of Cloudflare Pages project to deploy'
     required: true
+  branch:
+    description: 'Name of the branc to be deployed'
 outputs:
   deploymentId:
     description: 'Identifier of the completed deployment'
