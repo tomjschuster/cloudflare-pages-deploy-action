@@ -21,6 +21,7 @@ inputs:
     description: 'Indicates that the production build of the pages project should be deployed.'
   branch:
     description: 'Name of the branch to be deployed. Cannot be used together with "production".'
+    default: false
 outputs:
   deploymentId:
     description: 'Identifier of the completed deployment'
