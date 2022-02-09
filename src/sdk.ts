@@ -97,7 +97,7 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
       return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE')
     }
 
-    const name = `github-actions-temp-${nanoid()}-${new Date().toISOString()}`
+    const name = `github-actions-temp-${normalizedIsoString()}-${nanoid()}`
 
     console.log('CREATING DEPLOY HOOK')
 
@@ -161,4 +161,8 @@ function logHookDeleteError(name: string): void {
   console.error(
     `Failed to delete temporary deploy hook "${name}". Go to your Cloudflare Pages dashboard from https://dash.cloudflare.com and delete it manually through the Settings -> Builds and Deployments page`,
   )
+}
+
+function normalizedIsoString(): string {
+  return new Date().toISOString().split('.')[0].replace(/[-:]/g, '')
 }
