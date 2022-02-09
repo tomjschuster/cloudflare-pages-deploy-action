@@ -20,7 +20,7 @@ describe('run', () => {
     ;(getInput as jest.Mock).mockReturnValueOnce('apiKey')
     ;(getInput as jest.Mock).mockReturnValueOnce('email')
     ;(getInput as jest.Mock).mockReturnValueOnce('projectName')
-    jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    jest.spyOn(console, 'log') //.mockImplementation(() => undefined)
   })
 
   it('creates an sdk with the proper inputs', async () => {

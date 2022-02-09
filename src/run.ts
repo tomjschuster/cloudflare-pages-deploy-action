@@ -1,10 +1,13 @@
 import { getInput, setFailed, setOutput } from '@actions/core'
+import * as github from '@actions/github'
 import { deploy } from './deploy'
 import createSdk, { SdkConfig } from './sdk'
 import { Deployment, StageName } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
+  console.log('CONTEXT')
+  console.log(github.context)
   let deployment: Deployment
 
   try {
