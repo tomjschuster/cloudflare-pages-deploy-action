@@ -30,7 +30,7 @@ export type Sdk = {
 
 export default function createSdk({ accountId, apiKey, email, projectName }: SdkConfig): Sdk {
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
-    console.log({ path, body })
+    console.log({ method, path, body })
     const result = (await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
