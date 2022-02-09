@@ -242,6 +242,7 @@ const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
 function createSdk({ accountId, apiKey, email, projectName }) {
     function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log({ path, body });
             const result = (yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
                 headers: {
