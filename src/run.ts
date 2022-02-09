@@ -8,6 +8,9 @@ import { isStageSuccess } from './utils'
 export async function run(): Promise<void> {
   console.log('CONTEXT')
   console.log(github.context)
+  console.log('pull_request')
+  console.log(github.context.payload.pull_request)
+
   let deployment: Deployment
 
   try {
