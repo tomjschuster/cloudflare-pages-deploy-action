@@ -63,7 +63,9 @@ jobs:
           account-id: '${{ secrets.CF_ACCOUNT_ID }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+        env:
+          PAGES_PROJECT_NAME: my-pages-project
 ```
 
 ## License
