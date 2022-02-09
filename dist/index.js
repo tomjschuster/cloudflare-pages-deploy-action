@@ -202,17 +202,17 @@ function getBranch() {
     const branch = (0, core_1.getInput)('branch');
     const inputCount = [production, branch].filter((x) => x).length;
     if (inputCount > 1) {
-        const error = new Error('Inputs "production" and "branch" cannot be used together.');
-        (0, core_1.setFailed)(error);
-        throw error;
+        exitWithErrorMessage('Inputs "production" and "branch" cannot be used together.');
     }
     if (inputCount === 0) {
-        const error = new Error('Must provide exactly one of the following inputs: "production", "branch"');
-        (0, core_1.setFailed)(error);
-        throw error;
+        exitWithErrorMessage('Must provide exactly one of the following inputs: "production", "branch"');
     }
     if (production)
         return undefined;
+    const branchError = validateBranchName(branch);
+    if (branchError) {
+        exitWithErrorMessage(branchError);
+    }
     return branch;
 }
 function setOutputFromDeployment(deployment) {
@@ -228,6 +228,20 @@ function failedDeployMessage(stageName) {
     return `Deployment failed on stage: ${stageName}. See log output above for more information.`;
 }
 const RUNTIME_ERROR_MESSAGE = `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to https://dash.cloudflare.com and visit your Pages dashboard for more details.`;
+const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
+function validateBranchName(branch) {
+    if (invalidBranchNameRegex.test(branch)) {
+        return `Invalid branch name: ${branch}`;
+    }
+    if (branch.length > 255) {
+        return `Branch name must be 255 characters or less (received ${branch})`;
+    }
+}
+function exitWithErrorMessage(message) {
+    const error = new Error(message);
+    (0, core_1.setFailed)(error);
+    throw error;
+}
 
 
 /***/ }),
@@ -275,6 +289,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
     }
     function createDeployment(branch) {
         if (!branch) {
+            console.log('Creating a deployment for the production branch.');
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
         }
         // Cloudflare API only supports triggering deployments for the production branch, however, it
@@ -294,6 +309,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
             // Cloudflare API supports triggering production deployement without a webhook
             if (branch === project.source.config.production_branch)
                 return yield createDeployment();
+            console.log(`Creating a deployment for branch "${branch}".`);
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
