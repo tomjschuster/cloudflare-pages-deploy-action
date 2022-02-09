@@ -244,8 +244,9 @@ function exitWithErrorMessage(message) {
     throw error;
 }
 function logSuccess({ project_name, url, latest_stage }) {
-    console.log(`Successfully deployed ${project_name} at ${latest_stage === null || latest_stage === void 0 ? void 0 : latest_stage.ended_on}.`);
-    console.log(`Deployment is available at: ${url}`);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
+    console.log(`\nDeployment is available at:\n${url}`);
 }
 
 
@@ -294,7 +295,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
     }
     function createDeployment(branch) {
         if (!branch) {
-            console.log('Creating a deployment for the production branch.');
+            console.log(`\nCreating a deployment for the production branch of ${projectName}.\n`);
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
         }
         // Cloudflare API only supports triggering deployments for the production branch, however, it
@@ -314,7 +315,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
             // Cloudflare API supports triggering production deployement without a webhook
             if (branch === project.source.config.production_branch)
                 return yield createDeployment();
-            console.log(`Creating a deployment for branch "${branch}".`);
+            console.log(`\nCreating a deployment for branch "${branch}" of ${projectName}\n.`);
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
