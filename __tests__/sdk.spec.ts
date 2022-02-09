@@ -55,7 +55,7 @@ describe('sdk', () => {
   const expectedBaseUrl =
     'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project'
 
-  const expectedHooksBaseUrl = 'https://api.cloudflare.com/client/v4/webhooks'
+  const expectedHooksBaseUrl = 'https://api.cloudflare.com/client/v4/pages/webhooks'
 
   const expectedHeaders = {
     'X-Auth-Email': 'name@example.com',

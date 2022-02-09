@@ -90,7 +90,7 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
     }
 
     function executeDeployHook(id: string): Promise<DeployHookResult> {
-      return fetchCf(`/webhooks/deploy_hooks/${id}`, 'POST')
+      return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST')
     }
 
     function deleteDeployHook(id: string): Promise<void> {

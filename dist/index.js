@@ -291,7 +291,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
             function executeDeployHook(id) {
-                return fetchCf(`/webhooks/deploy_hooks/${id}`, 'POST');
+                return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST');
             }
             function deleteDeployHook(id) {
                 return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
