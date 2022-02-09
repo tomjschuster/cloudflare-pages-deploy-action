@@ -195,6 +195,8 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         console.log('CONTEXT');
         console.log(github.context);
+        console.log('pull_request');
+        console.log(github.context.payload.pull_request);
         let deployment;
         try {
             const config = getSdkConfigFromInput();
