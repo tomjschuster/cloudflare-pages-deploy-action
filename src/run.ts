@@ -15,9 +15,9 @@ export async function run(): Promise<void> {
     deployment = await deploy(sdk, getBranch())
     setOutputFromDeployment(deployment)
   } catch (e) {
-    setFailed(e instanceof Error ? e.message : `${e}`)
-
     console.log(RUNTIME_ERROR_MESSAGE)
+
+    setFailed(e instanceof Error ? e.message : `${e}`)
 
     return Promise.reject(e)
   }

@@ -181,8 +181,8 @@ function run() {
             setOutputFromDeployment(deployment);
         }
         catch (e) {
-            (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
             console.log(RUNTIME_ERROR_MESSAGE);
+            (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
             return Promise.reject(e);
         }
         checkDeployment(deployment);
