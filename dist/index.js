@@ -186,6 +186,7 @@ function run() {
             return Promise.reject(e);
         }
         checkDeployment(deployment);
+        logSuccess(deployment);
     });
 }
 exports.run = run;
@@ -200,7 +201,6 @@ function getSdkConfigFromInput() {
 function getBranch() {
     const production = (0, core_1.getBooleanInput)('production');
     const branch = (0, core_1.getInput)('branch');
-    console.log({ production, branch });
     const inputCount = [production, branch].filter((x) => x).length;
     if (inputCount > 1) {
         exitWithErrorMessage('Inputs "production" and "branch" cannot be used together.');
@@ -242,6 +242,10 @@ function exitWithErrorMessage(message) {
     const error = new Error(message);
     (0, core_1.setFailed)(error);
     throw error;
+}
+function logSuccess({ project_name, url, latest_stage }) {
+    console.log(`Successfully deployed ${project_name} at ${latest_stage === null || latest_stage === void 0 ? void 0 : latest_stage.ended_on}.`);
+    console.log(`Deployment is available at: ${url}`);
 }
 
 

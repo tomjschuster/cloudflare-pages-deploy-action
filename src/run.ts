@@ -22,6 +22,7 @@ export async function run(): Promise<void> {
     return Promise.reject(e)
   }
   checkDeployment(deployment)
+  logSuccess(deployment)
 }
 
 function getSdkConfigFromInput(): SdkConfig {
@@ -36,8 +37,6 @@ function getSdkConfigFromInput(): SdkConfig {
 function getBranch(): string | undefined {
   const production = getBooleanInput('production')
   const branch = getInput('branch')
-
-  console.log({ production, branch })
 
   const inputCount = [production, branch].filter((x) => x).length
 
@@ -92,4 +91,9 @@ function exitWithErrorMessage(message: string): void {
   const error = new Error(message)
   setFailed(error)
   throw error
+}
+
+function logSuccess({ project_name, url, latest_stage }: Deployment): void {
+  console.log(`Successfully deployed ${project_name} at ${latest_stage?.ended_on}.`)
+  console.log(`Deployment is available at: ${url}`)
 }
