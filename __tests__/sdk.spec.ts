@@ -55,6 +55,8 @@ describe('sdk', () => {
   const expectedBaseUrl =
     'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project'
 
+  const expectedHooksBaseUrl = 'https://api.cloudflare.com/client/v4/webhooks'
+
   const expectedHeaders = {
     'X-Auth-Email': 'name@example.com',
     'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
@@ -125,7 +127,7 @@ describe('sdk', () => {
 
     expect(fetch).toHaveBeenNthCalledWith(
       3,
-      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      `${expectedHooksBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
       {
         headers: expectedHeaders,
         method: 'POST',
@@ -181,7 +183,7 @@ describe('sdk', () => {
 
     expect(fetch).toHaveBeenNthCalledWith(
       3,
-      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      `${expectedHooksBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
       {
         headers: expectedHeaders,
         method: 'POST',

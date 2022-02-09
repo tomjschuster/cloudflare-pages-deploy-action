@@ -290,8 +290,8 @@ function createSdk({ accountId, apiKey, email, projectName }) {
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
-            function triggerDeployHook(id) {
-                return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'POST');
+            function executeDeployHook(id) {
+                return fetchCf(`/webhooks/deploy_hooks/${id}`, 'POST');
             }
             function deleteDeployHook(id) {
                 return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
@@ -303,7 +303,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
             let deletedHook = false;
             try {
                 console.log('TRIGGERING DEPLOYMENT');
-                const { id: deploymentId } = yield triggerDeployHook(hook_id);
+                const { id: deploymentId } = yield executeDeployHook(hook_id);
                 console.log({ deploymentId });
                 // We only need the webhook to trigger a onetime deployment for the given branch
                 console.log('DELETING DEPLOYMENT');

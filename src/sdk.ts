@@ -89,8 +89,8 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
       )
     }
 
-    function triggerDeployHook(id: string): Promise<DeployHookResult> {
-      return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'POST')
+    function executeDeployHook(id: string): Promise<DeployHookResult> {
+      return fetchCf(`/webhooks/deploy_hooks/${id}`, 'POST')
     }
 
     function deleteDeployHook(id: string): Promise<void> {
@@ -108,7 +108,7 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 
     try {
       console.log('TRIGGERING DEPLOYMENT')
-      const { id: deploymentId } = await triggerDeployHook(hook_id)
+      const { id: deploymentId } = await executeDeployHook(hook_id)
       console.log({ deploymentId })
 
       // We only need the webhook to trigger a onetime deployment for the given branch
