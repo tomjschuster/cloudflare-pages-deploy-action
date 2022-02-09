@@ -52,7 +52,8 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 
   function createDeployment(branch?: string): Promise<Deployment> {
     if (!branch) {
-      console.log(`\nCreating a deployment for the production branch of ${projectName}.\n`)
+      console.log('')
+      console.log(`Creating a deployment for the production branch of ${projectName}.\n`)
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
 
@@ -76,7 +77,8 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
     // Cloudflare API supports triggering production deployement without a webhook
     if (branch === project.source.config.production_branch) return await createDeployment()
 
-    console.log(`\nCreating a deployment for branch "${branch}" of ${projectName}\n.`)
+    console.log('')
+    console.log(`Creating a deployment for branch "${branch}" of ${projectName}\n.`)
 
     function createDeployHook(name: string, branch: string): Promise<DeployHook> {
       return fetchCf(

@@ -96,5 +96,5 @@ function exitWithErrorMessage(message: string): void {
 function logSuccess({ project_name, url, latest_stage }: Deployment): void {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   console.log(`Successfully deployed ${project_name} at ${latest_stage!.ended_on}.`)
-  console.log(`\nDeployment is available at:\n${url}`)
+  console.log(`URL: ${url}`)
 }
