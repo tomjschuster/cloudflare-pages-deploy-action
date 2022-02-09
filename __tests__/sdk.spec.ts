@@ -50,6 +50,8 @@ describe('sdk', () => {
       email: 'name@example.com',
       projectName: 'example-project',
     })
+
+    jest.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
   const expectedBaseUrl =
