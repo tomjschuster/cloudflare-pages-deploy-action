@@ -200,7 +200,7 @@ describe('sdk', () => {
     )
   })
 
-  it.skip('logs hook error on delete deploy hook failure for Create Deployment with a branch on failure', async () => {
+  it('logs hook error on delete deploy hook failure for Create Deployment with a branch on failure', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
     const branch = 'foo'
     const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
@@ -235,7 +235,7 @@ describe('sdk', () => {
 
     expect(fetch).toHaveBeenNthCalledWith(
       3,
-      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
+      `${expectedHooksBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
       {
         headers: expectedHeaders,
         method: 'POST',
