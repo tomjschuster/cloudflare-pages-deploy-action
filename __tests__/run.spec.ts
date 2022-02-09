@@ -96,11 +96,38 @@ describe('run', () => {
     expect(setFailed).toHaveBeenCalled()
   })
 
-  it('sets the job state to failed after a runtime error', async () => {
-    ;(deploy as jest.Mock).mockRejectedValue(new Error('foo'))
-    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+  it.each([
+    '/',
+    'foo..bar',
+    'foo bar',
+    'foo\x7Fbar',
+    'foo~bar',
+    'foo^bar',
+    'foo:bar',
+    'foo?bar',
+    'foo*bar',
+    'foo[bar',
+    '/foo',
+    'foo/',
+    'foo//bar',
+    'foo.',
+    'foo@{bar',
+    '@',
+    'foo\\bar',
+  ])('sets the job state to failed for invalid branch name "%s"', async (branch) => {
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getInput as jest.Mock).mockReturnValueOnce(branch)
 
-    await expect(run()).rejects.toEqual(new Error('foo'))
+    await expect(run()).rejects.toThrow()
+
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets the job state to failed for a very long branch name', async () => {
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getInput as jest.Mock).mockReturnValueOnce('foo'.repeat(100))
+
+    await expect(run()).rejects.toThrow()
 
     expect(setFailed).toHaveBeenCalled()
   })
