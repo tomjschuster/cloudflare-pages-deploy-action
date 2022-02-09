@@ -37,6 +37,8 @@ function getBranch(): string | undefined {
   const production = getBooleanInput('production')
   const branch = getInput('branch')
 
+  console.log({ production, branch })
+
   const inputCount = [production, branch].filter((x) => x).length
 
   if (inputCount > 1) {

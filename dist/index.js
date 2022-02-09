@@ -200,6 +200,7 @@ function getSdkConfigFromInput() {
 function getBranch() {
     const production = (0, core_1.getBooleanInput)('production');
     const branch = (0, core_1.getInput)('branch');
+    console.log({ production, branch });
     const inputCount = [production, branch].filter((x) => x).length;
     if (inputCount > 1) {
         exitWithErrorMessage('Inputs "production" and "branch" cannot be used together.');
