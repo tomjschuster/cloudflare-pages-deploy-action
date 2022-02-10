@@ -1,6 +1,31 @@
 require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 819:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.dashboardBuildDeploymentsSettingsUrl = exports.dashboardDeploymentUrl = void 0;
+function dashboardDeploymentUrl(accountId, projectName, deployment) {
+    if (!deployment) {
+        return baseDashboardUrl(accountId, projectName);
+    }
+    return `${baseDashboardUrl(accountId, projectName)}/${deployment.id}`;
+}
+exports.dashboardDeploymentUrl = dashboardDeploymentUrl;
+function dashboardBuildDeploymentsSettingsUrl(accountId, projectName) {
+    return `${dashboardDeploymentUrl(accountId, projectName)}/settings/builds-deployments`;
+}
+exports.dashboardBuildDeploymentsSettingsUrl = dashboardBuildDeploymentsSettingsUrl;
+function baseDashboardUrl(accountId, projectName) {
+    return `https://dash.cloudflare.com/${accountId}/pages/view/${projectName}`;
+}
+
+
+/***/ }),
+
 /***/ 538:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -18,12 +43,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(186);
+const errors_1 = __nccwpck_require__(292);
 const utils_1 = __nccwpck_require__(918);
 function deploy(sdk, branch) {
     return __awaiter(this, void 0, void 0, function* () {
         const deployment = yield sdk.createDeployment(branch);
-        yield logDeploymentStages(deployment, sdk);
-        return yield sdk.getDeploymentInfo(deployment.id);
+        try {
+            yield logDeploymentStages(deployment, sdk);
+            return yield sdk.getDeploymentInfo(deployment.id);
+        }
+        catch (e) {
+            throw new errors_1.DeploymentError(e, deployment);
+        }
     });
 }
 exports.deploy = deploy;
@@ -148,6 +179,65 @@ function getLastLogId(logs) {
 
 /***/ }),
 
+/***/ 292:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DeployHookDeleteError = exports.DeploymentError = exports.CloudFlareApiError = void 0;
+class CloudFlareApiError extends Error {
+    constructor(result) {
+        super(formatApiErrors(result.errors || []));
+        Object.setPrototypeOf(this, CloudFlareApiError.prototype);
+        this.result = result;
+    }
+}
+exports.CloudFlareApiError = CloudFlareApiError;
+function formatApiErrors(errors) {
+    const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
+    return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]';
+}
+class DeploymentError extends Error {
+    constructor(errorOrMessage, deployment) {
+        /* istanbul ignore else */
+        if (errorOrMessage instanceof Error) {
+            super(errorOrMessage.message);
+            this.stack = errorOrMessage.stack;
+        }
+        else if (typeof errorOrMessage === 'string' || errorOrMessage === undefined) {
+            super(errorOrMessage);
+        }
+        else {
+            super(`${errorOrMessage}`);
+        }
+        Object.setPrototypeOf(this, DeploymentError.prototype);
+        this.deployment = deployment;
+    }
+}
+exports.DeploymentError = DeploymentError;
+class DeployHookDeleteError extends Error {
+    constructor(errorOrMessage, hookName) {
+        /* istanbul ignore else */
+        if (errorOrMessage instanceof Error) {
+            super(errorOrMessage.message);
+            this.stack = errorOrMessage.stack;
+        }
+        else if (typeof errorOrMessage === 'string' || errorOrMessage === undefined) {
+            super(errorOrMessage);
+        }
+        else {
+            super(`${errorOrMessage}`);
+        }
+        Object.setPrototypeOf(this, DeployHookDeleteError.prototype);
+        this.hookName = hookName;
+    }
+}
+exports.DeployHookDeleteError = DeployHookDeleteError;
+
+
+/***/ }),
+
 /***/ 884:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -168,39 +258,45 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core_1 = __nccwpck_require__(186);
+const dashboard_1 = __nccwpck_require__(819);
 const deploy_1 = __nccwpck_require__(538);
+const errors_1 = __nccwpck_require__(292);
 const sdk_1 = __importDefault(__nccwpck_require__(557));
 const utils_1 = __nccwpck_require__(918);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         let deployment;
+        const { accountId, apiKey, email, projectName, production, branch } = getInputs();
         try {
-            const config = getSdkConfigFromInput();
-            const sdk = (0, sdk_1.default)(config);
-            deployment = yield (0, deploy_1.deploy)(sdk, getBranch());
+            const sdk = (0, sdk_1.default)({ accountId, apiKey, email, projectName });
+            deployment = yield (0, deploy_1.deploy)(sdk, getBranch(production, branch));
             setOutputFromDeployment(deployment);
+            checkDeployment(deployment);
+            logSuccess(deployment);
         }
         catch (e) {
-            console.log(RUNTIME_ERROR_MESSAGE);
+            deployment = e instanceof errors_1.DeploymentError ? e.deployment : deployment;
+            console.log(runtimeErrorMessage(accountId, projectName, deployment));
+            if (e instanceof errors_1.DeployHookDeleteError) {
+                console.log(hookDeleteErrorMessage(accountId, projectName, e.hookName));
+            }
             (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
-            return Promise.reject(e);
+            throw e;
         }
-        checkDeployment(deployment);
-        logSuccess(deployment);
     });
 }
 exports.run = run;
-function getSdkConfigFromInput() {
+function getInputs() {
     return {
         accountId: (0, core_1.getInput)('account-id', { required: true }),
         apiKey: (0, core_1.getInput)('api-key', { required: true }),
         email: (0, core_1.getInput)('email', { required: true }),
         projectName: (0, core_1.getInput)('project-name', { required: true }),
+        production: (0, core_1.getBooleanInput)('production'),
+        branch: (0, core_1.getInput)('branch'),
     };
 }
-function getBranch() {
-    const production = (0, core_1.getBooleanInput)('production');
-    const branch = (0, core_1.getInput)('branch');
+function getBranch(production, branch) {
     const inputCount = [production, branch].filter((x) => x).length;
     if (inputCount > 1) {
         exitWithErrorMessage('Inputs "production" and "branch" cannot be used together.');
@@ -208,7 +304,7 @@ function getBranch() {
     if (inputCount === 0) {
         exitWithErrorMessage('Must provide exactly one of the following inputs: "production", "branch"');
     }
-    if (production)
+    if (!branch)
         return undefined;
     const branchError = validateBranchName(branch);
     if (branchError) {
@@ -222,13 +318,20 @@ function setOutputFromDeployment(deployment) {
 }
 function checkDeployment({ latest_stage }) {
     if (latest_stage && !(0, utils_1.isStageSuccess)(latest_stage)) {
-        (0, core_1.setFailed)(failedDeployMessage(latest_stage.name));
+        exitWithErrorMessage(failedDeployMessage(latest_stage.name));
     }
 }
 function failedDeployMessage(stageName) {
     return `Deployment failed on stage: ${stageName}. See log output above for more information.`;
 }
-const RUNTIME_ERROR_MESSAGE = `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to https://dash.cloudflare.com and visit your Pages dashboard for more details.`;
+function runtimeErrorMessage(accountId, projectName, deployment) {
+    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment);
+    return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
+}
+function hookDeleteErrorMessage(accountId, projectName, name) {
+    const url = (0, dashboard_1.dashboardBuildDeploymentsSettingsUrl)(accountId, projectName);
+    return `Failed to delete temporary deploy hook "${name}".Go to ${url} to manually delete the deploy hook`;
+}
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
 function validateBranchName(branch) {
     if (invalidBranchNameRegex.test(branch)) {
@@ -270,9 +373,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CloudFlareApiError = void 0;
 const nanoid_1 = __nccwpck_require__(592);
 const node_fetch_1 = __importDefault(__nccwpck_require__(429));
+const errors_1 = __nccwpck_require__(292);
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
 function createSdk({ accountId, apiKey, email, projectName }) {
     function fetchCf(path, method = 'GET', body) {
@@ -286,7 +389,7 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                 body,
             }).then((res) => res.ok ? res.json() : Promise.reject(new Error(res.statusText))));
             if (!result.success)
-                return Promise.reject(new CloudFlareApiError(result));
+                return Promise.reject(new errors_1.CloudFlareApiError(result));
             return result.result;
         });
     }
@@ -341,7 +444,8 @@ function createSdk({ accountId, apiKey, email, projectName }) {
                 // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
                 // so they know to delete it manually through the dashboard
                 if (!deletedHook) {
-                    yield deleteDeployHook(hook_id).catch(() => logHookDeleteError(name));
+                    const deployHookDeleteError = new errors_1.DeployHookDeleteError(e, name);
+                    yield deleteDeployHook(hook_id).catch(() => Promise.reject(deployHookDeleteError));
                 }
                 throw e;
             }
@@ -357,21 +461,6 @@ function createSdk({ accountId, apiKey, email, projectName }) {
 exports["default"] = createSdk;
 function projectPath(accountId, projectName, path) {
     return `/accounts/${accountId}/pages/projects/${projectName}${path}`;
-}
-class CloudFlareApiError extends Error {
-    constructor(result) {
-        super(formatApiErrors(result.errors || []));
-        Object.setPrototypeOf(this, CloudFlareApiError.prototype);
-        this.result = result;
-    }
-}
-exports.CloudFlareApiError = CloudFlareApiError;
-function formatApiErrors(errors) {
-    const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
-    return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]';
-}
-function logHookDeleteError(name) {
-    console.error(`Failed to delete temporary deploy hook "${name}". Go to your Cloudflare Pages dashboard from https://dash.cloudflare.com and delete it manually through the Settings -> Builds and Deployments page`);
 }
 function normalizedIsoString() {
     return new Date().toISOString().split('.')[0].replace(/[-:]/g, '');

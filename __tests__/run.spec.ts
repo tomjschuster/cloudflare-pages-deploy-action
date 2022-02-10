@@ -1,9 +1,11 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
 import { deploy } from '../src/deploy'
+import { DeployHookDeleteError, DeploymentError } from '../src/errors'
 import { run } from '../src/run'
 import createSdk from '../src/sdk'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
 import { failedLiveDeployment } from '../__fixtures__/failedDeployment'
+import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeployment'
 
 jest.mock('@actions/core', () => ({
   getInput: jest.fn(),
@@ -15,13 +17,15 @@ jest.mock('../src/deploy', () => ({ deploy: jest.fn() }))
 jest.mock('../src/sdk', () => ({ __esModule: true, default: jest.fn(() => ({})) }))
 
 describe('run', () => {
+  let consoleLog: jest.SpyInstance<void, Parameters<typeof console.log>>
+
   beforeEach(() => {
     jest.clearAllMocks()
     ;(getInput as jest.Mock).mockReturnValueOnce('accountId')
     ;(getInput as jest.Mock).mockReturnValueOnce('apiKey')
     ;(getInput as jest.Mock).mockReturnValueOnce('email')
     ;(getInput as jest.Mock).mockReturnValueOnce('projectName')
-    jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    consoleLog = jest.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
   it('creates an sdk with the proper inputs', async () => {
@@ -71,7 +75,7 @@ describe('run', () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(failedLiveDeployment)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
-    await run()
+    await expect(run()).rejects.toThrow()
 
     expect(setFailed).toHaveBeenCalled()
   })
@@ -138,6 +142,27 @@ describe('run', () => {
 
     await expect(run()).rejects.toEqual(new Error('foo'))
 
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets the job state to failed and logs a message when deployment starts but does not complete', async () => {
+    ;(deploy as jest.Mock).mockRejectedValue(new DeploymentError(new Error('foo'), deployment))
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+
+    await expect(run()).rejects.toThrow()
+
+    expect(consoleLog).toHaveBeenCalledTimes(1)
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets the job state to failed when deploy hook fails to delete', async () => {
+    ;(deploy as jest.Mock).mockRejectedValue(new DeployHookDeleteError(new Error('foo'), 'bar'))
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+
+    await expect(run()).rejects.toThrow()
+
+    // 1 for failed deploy, 1 for failed hook deletion
+    expect(consoleLog).toHaveBeenCalledTimes(2)
     expect(setFailed).toHaveBeenCalled()
   })
 

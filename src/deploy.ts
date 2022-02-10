@@ -1,4 +1,5 @@
 import { endGroup, startGroup } from '@actions/core'
+import { DeploymentError } from './errors'
 import { Sdk } from './sdk'
 import { Deployment, Stage, StageLog, StageLogsResult, StageName } from './types'
 import { isQueuedStage, isStageComplete, isStageIdle, isStageSuccess, wait } from './utils'
@@ -6,9 +7,13 @@ import { isQueuedStage, isStageComplete, isStageIdle, isStageSuccess, wait } fro
 export async function deploy(sdk: Sdk, branch?: string): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
 
-  await logDeploymentStages(deployment, sdk)
+  try {
+    await logDeploymentStages(deployment, sdk)
 
-  return await sdk.getDeploymentInfo(deployment.id)
+    return await sdk.getDeploymentInfo(deployment.id)
+  } catch (e) {
+    throw new DeploymentError(e, deployment)
+  }
 }
 
 async function logDeploymentStages({ id, stages }: Deployment, sdk: Sdk): Promise<void> {

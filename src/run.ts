@@ -1,43 +1,60 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
+import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
 import { deploy } from './deploy'
-import createSdk, { SdkConfig } from './sdk'
+import { DeployHookDeleteError, DeploymentError } from './errors'
+import createSdk from './sdk'
 import { Deployment, StageName } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
-  let deployment: Deployment
+  let deployment: Deployment | undefined
+
+  const { accountId, apiKey, email, projectName, production, branch } = getInputs()
 
   try {
-    const config = getSdkConfigFromInput()
+    const sdk = createSdk({ accountId, apiKey, email, projectName })
 
-    const sdk = createSdk(config)
+    deployment = await deploy(sdk, getBranch(production, branch))
 
-    deployment = await deploy(sdk, getBranch())
     setOutputFromDeployment(deployment)
+    checkDeployment(deployment)
+    logSuccess(deployment)
   } catch (e) {
-    console.log(RUNTIME_ERROR_MESSAGE)
+    deployment = e instanceof DeploymentError ? e.deployment : deployment
+
+    console.log(runtimeErrorMessage(accountId, projectName, deployment))
+
+    if (e instanceof DeployHookDeleteError) {
+      console.log(hookDeleteErrorMessage(accountId, projectName, e.hookName))
+    }
 
     setFailed(e instanceof Error ? e.message : `${e}`)
 
-    return Promise.reject(e)
+    throw e
   }
-  checkDeployment(deployment)
-  logSuccess(deployment)
 }
 
-function getSdkConfigFromInput(): SdkConfig {
+type Inputs = {
+  accountId: string
+  apiKey: string
+  email: string
+  projectName: string
+  production: boolean
+  branch?: string
+}
+
+function getInputs(): Inputs {
   return {
     accountId: getInput('account-id', { required: true }),
     apiKey: getInput('api-key', { required: true }),
     email: getInput('email', { required: true }),
     projectName: getInput('project-name', { required: true }),
+    production: getBooleanInput('production'),
+    branch: getInput('branch'),
   }
 }
 
-function getBranch(): string | undefined {
-  const production = getBooleanInput('production')
-  const branch = getInput('branch')
-
+function getBranch(production: boolean, branch?: string): string | undefined {
   const inputCount = [production, branch].filter((x) => x).length
 
   if (inputCount > 1) {
@@ -48,7 +65,7 @@ function getBranch(): string | undefined {
     exitWithErrorMessage('Must provide exactly one of the following inputs: "production", "branch"')
   }
 
-  if (production) return undefined
+  if (!branch) return undefined
 
   const branchError = validateBranchName(branch)
 
@@ -66,7 +83,7 @@ function setOutputFromDeployment(deployment: Deployment): void {
 
 function checkDeployment({ latest_stage }: Deployment): void {
   if (latest_stage && !isStageSuccess(latest_stage)) {
-    setFailed(failedDeployMessage(latest_stage.name))
+    exitWithErrorMessage(failedDeployMessage(latest_stage.name))
   }
 }
 
@@ -74,7 +91,16 @@ function failedDeployMessage(stageName: StageName): string {
   return `Deployment failed on stage: ${stageName}. See log output above for more information.`
 }
 
-const RUNTIME_ERROR_MESSAGE = `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to https://dash.cloudflare.com and visit your Pages dashboard for more details.`
+function runtimeErrorMessage(accountId: string, projectName: string, deployment?: Deployment) {
+  const url = dashboardDeploymentUrl(accountId, projectName, deployment)
+  return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`
+}
+
+function hookDeleteErrorMessage(accountId: string, projectName: string, name: string): string {
+  const url = dashboardBuildDeploymentsSettingsUrl(accountId, projectName)
+
+  return `Failed to delete temporary deploy hook "${name}".Go to ${url} to manually delete the deploy hook`
+}
 
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/
 function validateBranchName(branch: string): string | undefined {

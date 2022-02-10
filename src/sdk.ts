@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import fetch, { BodyInit } from 'node-fetch'
+import { CloudFlareApiError, DeployHookDeleteError } from './errors'
 import {
-  ApiErrorEntry,
   ApiResult,
   DeployHook,
   DeployHookResult,
@@ -114,8 +114,10 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
       // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
       // so they know to delete it manually through the dashboard
       if (!deletedHook) {
-        await deleteDeployHook(hook_id).catch(() => logHookDeleteError(name))
+        const deployHookDeleteError = new DeployHookDeleteError(e, name)
+        await deleteDeployHook(hook_id).catch(() => Promise.reject(deployHookDeleteError))
       }
+
       throw e
     }
   }
@@ -130,29 +132,6 @@ export default function createSdk({ accountId, apiKey, email, projectName }: Sdk
 
 function projectPath(accountId: string, projectName: string, path: string): string {
   return `/accounts/${accountId}/pages/projects/${projectName}${path}`
-}
-
-export class CloudFlareApiError extends Error {
-  result: ApiResult<unknown>
-
-  constructor(result: ApiResult<unknown>) {
-    super(formatApiErrors(result.errors || []))
-
-    Object.setPrototypeOf(this, CloudFlareApiError.prototype)
-
-    this.result = result
-  }
-}
-
-function formatApiErrors(errors: ApiErrorEntry[]): string {
-  const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
-  return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]'
-}
-
-function logHookDeleteError(name: string): void {
-  console.error(
-    `Failed to delete temporary deploy hook "${name}". Go to your Cloudflare Pages dashboard from https://dash.cloudflare.com and delete it manually through the Settings -> Builds and Deployments page`,
-  )
 }
 
 function normalizedIsoString(): string {

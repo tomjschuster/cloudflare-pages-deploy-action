@@ -1,4 +1,5 @@
 import fetch from 'node-fetch'
+import { DeployHookDeleteError } from '../src/errors'
 import createSdk, { Sdk } from '../src/sdk'
 import { ApiResult } from '../src/types'
 
@@ -202,8 +203,7 @@ describe('sdk', () => {
     )
   })
 
-  it('logs hook error on delete deploy hook failure for Create Deployment with a branch on failure', async () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+  it('rejects with a hook error on delete deploy hook failure for Create Deployment with a branch on failure', async () => {
     const branch = 'foo'
     const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
 
@@ -220,40 +220,15 @@ describe('sdk', () => {
       statusText: 'Bad Gateway',
     })
 
-    await expect(sdk.createDeployment(branch)).rejects.toThrow()
-
-    expect(fetch).toHaveBeenCalledTimes(4)
-
-    expect(fetch).toHaveBeenNthCalledWith(1, expectedBaseUrl, {
-      headers: expectedHeaders,
-      method: 'GET',
-    })
-
-    expect(fetch).toHaveBeenNthCalledWith(2, `${expectedBaseUrl}/deploy_hooks`, {
-      headers: expectedHeaders,
-      body: expect.any(String),
-      method: 'POST',
-    })
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      3,
-      `${expectedHooksBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
-      {
-        headers: expectedHeaders,
-        method: 'POST',
-      },
-    )
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      4,
-      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
-      {
-        headers: expectedHeaders,
-        method: 'DELETE',
-      },
-    )
-
-    expect(consoleError).toHaveBeenCalledTimes(1)
+    await sdk
+      .createDeployment(branch)
+      .then(() => {
+        // force failure if no
+        expect(true).toBe(false)
+      })
+      .catch((e) => {
+        expect(e).toBeInstanceOf(DeployHookDeleteError)
+      })
   })
 
   it('calls Get Deployment Info', async () => {

@@ -1,5 +1,6 @@
 import * as actionsCore from '@actions/core'
 import { deploy, stagePollIntervalEnvName } from '../src/deploy'
+import { DeploymentError } from '../src/errors'
 import { Sdk } from '../src/sdk'
 import {
   buildLogs,
@@ -249,5 +250,14 @@ describe('deploy', () => {
     expect(consoleSpy).toHaveBeenCalledTimes(11)
     expect(startGroupSpy).toHaveBeenCalledTimes(6)
     expect(endGroupSpy).toHaveBeenCalledTimes(6)
+  })
+
+  it('throws a DeploymentError if error thrown after deployment start', async () => {
+    sdk.createDeployment.mockResolvedValueOnce(initialLiveDeployment)
+    sdk.getStageLogs.mockRejectedValueOnce(new Error('foo'))
+
+    const error = new DeploymentError(new Error('foo'), initialLiveDeployment)
+
+    await expect(deploy(sdk)).rejects.toThrowError(error)
   })
 })
