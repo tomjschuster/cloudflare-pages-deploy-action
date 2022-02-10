@@ -11,27 +11,31 @@ export async function run(): Promise<void> {
 
   const { accountId, apiKey, email, projectName, production, branch } = getInputs()
 
-  try {
-    const sdk = createSdk({ accountId, apiKey, email, projectName })
+  const branchError = validateBranch(production, branch)
 
-    deployment = await deploy(sdk, getBranch(production, branch))
-
-    setOutputFromDeployment(deployment)
-    checkDeployment(deployment)
-    logSuccess(deployment)
-  } catch (e) {
-    deployment = e instanceof DeploymentError ? e.deployment : deployment
-
-    console.log(runtimeErrorMessage(accountId, projectName, deployment))
-
-    if (e instanceof DeployHookDeleteError) {
-      console.log(hookDeleteErrorMessage(accountId, projectName, e.hookName))
-    }
-
-    setFailed(e instanceof Error ? e.message : `${e}`)
-
-    throw e
+  if (branchError) {
+    setFailed(branchError)
+    return
   }
+
+  const sdk = createSdk({ accountId, apiKey, email, projectName })
+
+  try {
+    deployment = await deploy(sdk, branch)
+    setOutputFromDeployment(deployment)
+  } catch (error) {
+    handleError(accountId, projectName, error, deployment)
+    setFailed(error instanceof Error ? error.message : `${error}`)
+    return
+  }
+
+  const failureMessage = checkDeploymentFailure(deployment)
+  if (failureMessage) {
+    setFailed(failureMessage)
+    return
+  }
+
+  logSuccess(deployment)
 }
 
 type Inputs = {
@@ -54,26 +58,18 @@ function getInputs(): Inputs {
   }
 }
 
-function getBranch(production: boolean, branch?: string): string | undefined {
+function validateBranch(production: boolean, branch?: string): string | undefined {
   const inputCount = [production, branch].filter((x) => x).length
 
   if (inputCount > 1) {
-    exitWithErrorMessage('Inputs "production" and "branch" cannot be used together.')
+    return 'Inputs "production" and "branch" cannot be used together.'
   }
 
   if (inputCount === 0) {
-    exitWithErrorMessage('Must provide exactly one of the following inputs: "production", "branch"')
+    return 'Must provide exactly one of the following inputs: "production", "branch"'
   }
 
-  if (!branch) return undefined
-
-  const branchError = validateBranchName(branch)
-
-  if (branchError) {
-    exitWithErrorMessage(branchError)
-  }
-
-  return branch
+  if (branch) return validateBranchName(branch)
 }
 
 function setOutputFromDeployment(deployment: Deployment): void {
@@ -81,9 +77,24 @@ function setOutputFromDeployment(deployment: Deployment): void {
   setOutput('url', deployment.url)
 }
 
-function checkDeployment({ latest_stage }: Deployment): void {
+function checkDeploymentFailure({ latest_stage }: Deployment): string | undefined {
   if (latest_stage && !isStageSuccess(latest_stage)) {
-    exitWithErrorMessage(failedDeployMessage(latest_stage.name))
+    return failedDeployMessage(latest_stage.name)
+  }
+}
+
+function handleError(
+  accountId: string,
+  projectName: string,
+  error: unknown,
+  deployment: Deployment | undefined,
+): void {
+  deployment = error instanceof DeploymentError ? error.deployment : deployment
+
+  console.log(unexpectedErrorMessage(accountId, projectName, deployment))
+
+  if (error instanceof DeployHookDeleteError) {
+    console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName))
   }
 }
 
@@ -91,7 +102,7 @@ function failedDeployMessage(stageName: StageName): string {
   return `Deployment failed on stage: ${stageName}. See log output above for more information.`
 }
 
-function runtimeErrorMessage(accountId: string, projectName: string, deployment?: Deployment) {
+function unexpectedErrorMessage(accountId: string, projectName: string, deployment?: Deployment) {
   const url = dashboardDeploymentUrl(accountId, projectName, deployment)
   return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`
 }
@@ -111,12 +122,6 @@ function validateBranchName(branch: string): string | undefined {
   if (branch.length > 255) {
     return `Branch name must be 255 characters or less (received ${branch})`
   }
-}
-
-function exitWithErrorMessage(message: string): void {
-  const error = new Error(message)
-  setFailed(error)
-  throw error
 }
 
 function logSuccess({ project_name, url, latest_stage }: Deployment): void {

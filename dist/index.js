@@ -267,22 +267,27 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         let deployment;
         const { accountId, apiKey, email, projectName, production, branch } = getInputs();
+        const branchError = validateBranch(production, branch);
+        if (branchError) {
+            (0, core_1.setFailed)(branchError);
+            return;
+        }
+        const sdk = (0, sdk_1.default)({ accountId, apiKey, email, projectName });
         try {
-            const sdk = (0, sdk_1.default)({ accountId, apiKey, email, projectName });
-            deployment = yield (0, deploy_1.deploy)(sdk, getBranch(production, branch));
+            deployment = yield (0, deploy_1.deploy)(sdk, branch);
             setOutputFromDeployment(deployment);
-            checkDeployment(deployment);
-            logSuccess(deployment);
         }
-        catch (e) {
-            deployment = e instanceof errors_1.DeploymentError ? e.deployment : deployment;
-            console.log(runtimeErrorMessage(accountId, projectName, deployment));
-            if (e instanceof errors_1.DeployHookDeleteError) {
-                console.log(hookDeleteErrorMessage(accountId, projectName, e.hookName));
-            }
-            (0, core_1.setFailed)(e instanceof Error ? e.message : `${e}`);
-            throw e;
+        catch (error) {
+            handleError(accountId, projectName, error, deployment);
+            (0, core_1.setFailed)(error instanceof Error ? error.message : `${error}`);
+            return;
         }
+        const failureMessage = checkDeploymentFailure(deployment);
+        if (failureMessage) {
+            (0, core_1.setFailed)(failureMessage);
+            return;
+        }
+        logSuccess(deployment);
     });
 }
 exports.run = run;
@@ -296,35 +301,37 @@ function getInputs() {
         branch: (0, core_1.getInput)('branch'),
     };
 }
-function getBranch(production, branch) {
+function validateBranch(production, branch) {
     const inputCount = [production, branch].filter((x) => x).length;
     if (inputCount > 1) {
-        exitWithErrorMessage('Inputs "production" and "branch" cannot be used together.');
+        return 'Inputs "production" and "branch" cannot be used together.';
     }
     if (inputCount === 0) {
-        exitWithErrorMessage('Must provide exactly one of the following inputs: "production", "branch"');
+        return 'Must provide exactly one of the following inputs: "production", "branch"';
     }
-    if (!branch)
-        return undefined;
-    const branchError = validateBranchName(branch);
-    if (branchError) {
-        exitWithErrorMessage(branchError);
-    }
-    return branch;
+    if (branch)
+        return validateBranchName(branch);
 }
 function setOutputFromDeployment(deployment) {
     (0, core_1.setOutput)('deployment-id', deployment.id);
     (0, core_1.setOutput)('url', deployment.url);
 }
-function checkDeployment({ latest_stage }) {
+function checkDeploymentFailure({ latest_stage }) {
     if (latest_stage && !(0, utils_1.isStageSuccess)(latest_stage)) {
-        exitWithErrorMessage(failedDeployMessage(latest_stage.name));
+        return failedDeployMessage(latest_stage.name);
+    }
+}
+function handleError(accountId, projectName, error, deployment) {
+    deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
+    console.log(unexpectedErrorMessage(accountId, projectName, deployment));
+    if (error instanceof errors_1.DeployHookDeleteError) {
+        console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName));
     }
 }
 function failedDeployMessage(stageName) {
     return `Deployment failed on stage: ${stageName}. See log output above for more information.`;
 }
-function runtimeErrorMessage(accountId, projectName, deployment) {
+function unexpectedErrorMessage(accountId, projectName, deployment) {
     const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment);
     return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
 }
@@ -340,11 +347,6 @@ function validateBranchName(branch) {
     if (branch.length > 255) {
         return `Branch name must be 255 characters or less (received ${branch})`;
     }
-}
-function exitWithErrorMessage(message) {
-    const error = new Error(message);
-    (0, core_1.setFailed)(error);
-    throw error;
 }
 function logSuccess({ project_name, url, latest_stage }) {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

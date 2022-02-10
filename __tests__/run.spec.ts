@@ -75,7 +75,7 @@ describe('run', () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(failedLiveDeployment)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     expect(setFailed).toHaveBeenCalled()
   })
@@ -85,7 +85,7 @@ describe('run', () => {
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
     ;(getInput as jest.Mock).mockReturnValueOnce('foo')
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     expect(setFailed).toHaveBeenCalled()
   })
@@ -95,7 +95,7 @@ describe('run', () => {
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
     ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     expect(setFailed).toHaveBeenCalled()
   })
@@ -122,7 +122,7 @@ describe('run', () => {
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
     ;(getInput as jest.Mock).mockReturnValueOnce(branch)
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     expect(setFailed).toHaveBeenCalled()
   })
@@ -131,7 +131,7 @@ describe('run', () => {
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
     ;(getInput as jest.Mock).mockReturnValueOnce('foo'.repeat(100))
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     expect(setFailed).toHaveBeenCalled()
   })
@@ -140,16 +140,16 @@ describe('run', () => {
     ;(deploy as jest.Mock).mockRejectedValue(new Error('foo'))
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
-    await expect(run()).rejects.toEqual(new Error('foo'))
+    await run()
 
-    expect(setFailed).toHaveBeenCalled()
+    expect(setFailed).toHaveBeenCalledWith('foo')
   })
 
   it('sets the job state to failed and logs a message when deployment starts but does not complete', async () => {
     ;(deploy as jest.Mock).mockRejectedValue(new DeploymentError(new Error('foo'), deployment))
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     expect(consoleLog).toHaveBeenCalledTimes(1)
     expect(setFailed).toHaveBeenCalled()
@@ -159,7 +159,7 @@ describe('run', () => {
     ;(deploy as jest.Mock).mockRejectedValue(new DeployHookDeleteError(new Error('foo'), 'bar'))
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
-    await expect(run()).rejects.toThrow()
+    await run()
 
     // 1 for failed deploy, 1 for failed hook deletion
     expect(consoleLog).toHaveBeenCalledTimes(2)
@@ -170,7 +170,7 @@ describe('run', () => {
     ;(deploy as jest.Mock).mockRejectedValue(1)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
-    await expect(run()).rejects.toEqual(1)
+    await run()
 
     expect(setFailed).toHaveBeenCalled()
   })
