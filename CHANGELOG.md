@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.6](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.5...v0.0.6) (2022-02-11)
+
+
+### Bug Fixes
+
+* update action input spelling ([eb2c9fc](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/eb2c9fc64f834cae1b53e7621f4ce9d955e61b38))
+
 ### [0.0.5](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.4...v0.0.5) (2022-02-11)
 
 
