@@ -117,7 +117,7 @@ function cfDeploymentParams(
   accountId: string,
   { id, project_name, source, deployment_trigger, environment }: Deployment,
 ): CommonGithubDeploymentParams {
-  return {
+  const params = {
     owner: source.config.owner,
     repo: source.config.repo_name,
     ref: deployment_trigger.metadata.commit_hash,
@@ -126,6 +126,10 @@ function cfDeploymentParams(
     production_environment: environment === 'production',
     log_url: dashboardDeploymentUrl(accountId, project_name, id),
   }
+
+  console.log({ params })
+
+  return params
 }
 
 function githubEnvironmentFromDeployment(

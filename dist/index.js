@@ -444,7 +444,7 @@ function resolveDeploymentId(result) {
     throw new errors_1.GithubApiError(result.status, result.data.message);
 }
 function cfDeploymentParams(accountId, { id, project_name, source, deployment_trigger, environment }) {
-    return {
+    const params = {
         owner: source.config.owner,
         repo: source.config.repo_name,
         ref: deployment_trigger.metadata.commit_hash,
@@ -453,6 +453,8 @@ function cfDeploymentParams(accountId, { id, project_name, source, deployment_tr
         production_environment: environment === 'production',
         log_url: (0, dashboard_1.dashboardDeploymentUrl)(accountId, project_name, id),
     };
+    console.log({ params });
+    return params;
 }
 function githubEnvironmentFromDeployment(environment, branch) {
     if (environment === 'production')
