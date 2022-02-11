@@ -98,6 +98,43 @@ jobs:
           PAGES_PROJECT_NAME: my-pages-project
 ```
 
+Or combine production and preview in a single job:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy preview
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: tomjschuster/cloudflare-pages-deploy-action@v0
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          branch: ${{ github.head_ref }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy production
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: tomjschuster/cloudflare-pages-deploy-action@v0
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          production: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## License
 
 The scripts and documentation in this project are released under the [MIT License](LICENSE).

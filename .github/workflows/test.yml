@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - 'releases/*'
 
 env:
   PAGES_PROJECT_NAME: cloudflare-pages-deploy-action
@@ -24,11 +23,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           flag-name: unit
 
-  test-production:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: ./
+      - name: Test Production
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: ./
         with:
           account-id: '${{ secrets.CF_ACCOUNT_ID }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
@@ -37,11 +38,9 @@ jobs:
           production: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  test-branch:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: ./
+      - name: Test Preview
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: ./
         with:
           account-id: '${{ secrets.CF_ACCOUNT_ID }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
