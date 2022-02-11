@@ -387,16 +387,18 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
     const octokit = (0, github_1.getOctokit)(token);
     let id;
     let deployment;
-    function deploy(deployment) {
+    function deploy(newDeployment) {
         return __awaiter(this, void 0, void 0, function* () {
             console.log('CREATING GITHUB DEPLOYMENT');
-            id = yield createGitHubDeployment(octokit, accountId, deployment);
-            console.log('GITHUB DEPLOYMENT CREATED');
+            id = yield createGitHubDeployment(octokit, accountId, newDeployment);
+            deployment = newDeployment;
+            console.log('GITHUB DEPLOYMENT CREATED', id);
         });
     }
     function updateState(stageName) {
         return __awaiter(this, void 0, void 0, function* () {
             const state = githubDeployStateFromStage(stageName);
+            console.log('STAGE', stageName, state, id, !!deployment);
             if (!state || !id || !deployment)
                 return;
             console.log('UPDATING GITHUB DEPLOYMENT', state);
@@ -542,7 +544,7 @@ function getInputs() {
         projectName: (0, core_1.getInput)('project-name', { required: true }),
         production: (0, core_1.getBooleanInput)('production'),
         branch: (0, core_1.getInput)('branch'),
-        githubToken: (0, core_1.getInput)('githubToken'),
+        githubToken: (0, core_1.getInput)('github-token'),
     };
 }
 function validateBranch(production, branch) {
