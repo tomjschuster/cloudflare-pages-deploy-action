@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.5](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.4...v0.0.5) (2022-02-11)
+
+
+### Features
+
+* create preview deployment using webhooks ([#26](https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues/26)) ([2e91b52](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/2e91b521b9bac9c7d631c2097055dd3615f58b82))
+* **github deployments:** make preview deploys transient ([#27](https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues/27)) ([3dcd2e7](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/3dcd2e73994078d75c66a0d7334b36335179572d))
+
 ### [0.0.4](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.3...v0.0.4) (2022-02-07)
 
 ### [0.0.3](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.2...v0.0.3) (2022-02-07)
