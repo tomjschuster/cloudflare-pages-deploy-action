@@ -389,7 +389,10 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
     let deployment;
     function deploy(deployment) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('USER TEST', yield octokit.rest.users.getAuthenticated());
+            console.log('REPO TEST', yield octokit.rest.repos.get({
+                owner: 'tomjschuster',
+                repo: 'example-cloudflare-pages-site',
+            }));
             throw new Error('foo');
             console.log('CREATING GITHUB DEPLOYMENT');
             id = yield createGitHubDeployment(octokit, accountId, deployment);

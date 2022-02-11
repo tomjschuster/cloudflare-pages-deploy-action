@@ -16,7 +16,13 @@ export function createGithubCloudfrontDeploymentHandlers(
   let deployment: Deployment | undefined
 
   async function deploy(deployment: Deployment): Promise<void> {
-    console.log('USER TEST', await octokit.rest.users.getAuthenticated())
+    console.log(
+      'REPO TEST',
+      await octokit.rest.repos.get({
+        owner: 'tomjschuster',
+        repo: 'example-cloudflare-pages-site',
+      }),
+    )
     throw new Error('foo')
     console.log('CREATING GITHUB DEPLOYMENT')
     id = await createGitHubDeployment(octokit, accountId, deployment)
