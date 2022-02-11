@@ -425,7 +425,7 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
 exports.createGithubCloudfrontDeploymentHandlers = createGithubCloudfrontDeploymentHandlers;
 function createGitHubDeployment(octokit, accountId, cfDeployment) {
     return octokit.rest.repos
-        .createDeployment(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { required_contexts: [] }))
+        .createDeployment(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { required_contexts: [], transient_environment: cfDeployment.environment !== 'production' }))
         .then(resolveDeploymentId);
 }
 function createGitHubDeploymentStatus(octokit, accountId, id, state, cfDeployment) {
