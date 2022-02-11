@@ -7,10 +7,10 @@ build()
 
 async function build(): Promise<void> {
   await ensureDir()
-  const [sha1, branch] = await getGitInfo()
+  const sha1 = await getGitSha1()
   const color1 = randomColor()
   const color2 = randomColor()
-  const html = generateHtml(new Date(), sha1, branch, color1, color2)
+  const html = generateHtml(new Date(), sha1, color1, color2)
 
   console.log('Generating static HTML...')
   console.log('______________________________________________\n\n')
@@ -26,23 +26,16 @@ function ensureDir(): void {
   if (!fs.existsSync('out')) fs.mkdirSync('out')
 }
 
-async function getGitInfo(): Promise<[sha1: string, branch: string]> {
+async function getGitSha1(): Promise<string> {
   const { stdout: sha1 } = await exec('git rev-parse HEAD')
-  const { stdout: branch } = await exec('git branch --show-current')
-  return [sha1.trim(), branch.trim()]
+  return sha1.trim()
 }
 
 function randomColor(): string {
   return Math.floor(Math.random() * 16777215).toString(16)
 }
 
-function generateHtml(
-  date: Date,
-  sha1: string,
-  branch: string,
-  color1: string,
-  color2: string,
-): string {
+function generateHtml(date: Date, sha1: string, color1: string, color2: string): string {
   return `<!DOCTYPE html>
 <html>
   <head>
@@ -132,12 +125,6 @@ function generateHtml(
           <td>SHA-1</td>
           <td>
             <a href="https://github.com/tomjschuster/cloudflare-pages-deploy-action/tree/${sha1}">${sha1}</a>
-          </td>
-        </tr>
-        <tr>
-          <td>Branch</td>
-          <td>
-            <a href="https://github.com/tomjschuster/cloudflare-pages-deploy-action/tree/${branch}">${branch}</a>
           </td>
         </tr>
       </tbody>
