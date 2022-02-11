@@ -389,6 +389,7 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
     let deployment;
     function deploy(deployment) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('GETTING REPO');
             console.log('REPO TEST', yield octokit.rest.repos.get({
                 owner: 'tomjschuster',
                 repo: 'example-cloudflare-pages-site',

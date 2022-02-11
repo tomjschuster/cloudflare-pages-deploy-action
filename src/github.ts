@@ -16,6 +16,7 @@ export function createGithubCloudfrontDeploymentHandlers(
   let deployment: Deployment | undefined
 
   async function deploy(deployment: Deployment): Promise<void> {
+    console.log('GETTING REPO')
     console.log(
       'REPO TEST',
       await octokit.rest.repos.get({
