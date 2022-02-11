@@ -1,17 +1,42 @@
 import { endGroup, startGroup } from '@actions/core'
-import { Sdk } from './sdk'
-import { Deployment, Stage, StageLog, StageLogsResult, StageName } from './types'
+import { PagesSdk } from './cloudflare'
+import { DeploymentError } from './errors'
+import {
+  Deployment,
+  DeploymentHandlers,
+  Stage,
+  StageLog,
+  StageLogsResult,
+  StageName,
+} from './types'
 import { isQueuedStage, isStageComplete, isStageIdle, isStageSuccess, wait } from './utils'
 
-export async function deploy(sdk: Sdk): Promise<Deployment> {
-  const deployment = await sdk.createDeployment()
+export async function deploy(
+  sdk: PagesSdk,
+  branch: string | undefined,
+  handlers?: DeploymentHandlers,
+): Promise<Deployment> {
+  // // @ts-expect-error foo
+  // await handlers?.onStart()
+  const deployment = await sdk.createDeployment(branch)
+  await handlers?.onStart(deployment)
 
-  await logDeploymentStages(deployment, sdk)
+  try {
+    await logDeploymentStages(sdk, deployment, handlers?.onStageChange)
 
-  return await sdk.getDeploymentInfo(deployment.id)
+    return await sdk.getDeploymentInfo(deployment.id)
+  } catch (e) {
+    throw new DeploymentError(e, deployment)
+  }
 }
 
-async function logDeploymentStages({ id, stages }: Deployment, sdk: Sdk): Promise<void> {
+async function logDeploymentStages(
+  sdk: PagesSdk,
+  deployment: Deployment,
+  onChange?: (stage: StageName) => Promise<void>,
+): Promise<void> {
+  const { id, stages } = deployment
+
   for (let i = 0; i < stages.length; i++) {
     const { name } = stages[i]
     const nextStage: Stage | undefined = stages[i + 1]
@@ -21,6 +46,8 @@ async function logDeploymentStages({ id, stages }: Deployment, sdk: Sdk): Promis
     let lastLogId: number | undefined
 
     if (shouldSkip(stageLogs)) continue
+
+    onChange && (await onChange(name))
 
     startGroup(displayNewStage(name))
 

@@ -108,3 +108,21 @@ export type StageLog = {
   timestamp: string
   message: string
 }
+
+export type DeployHook = {
+  hook_id: string
+  name: string
+  branch: string
+  created_on: string
+}
+
+export type DeployHookResult = {
+  id: string
+}
+
+export type DeploymentHandlers = {
+  onStart: (deployment: Deployment) => Promise<void>
+  onStageChange: (stageName: StageName) => Promise<void>
+  onSuccess: () => void
+  onFailure: () => void
+}

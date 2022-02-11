@@ -2,5 +2,16 @@
   "root": true,
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint"],
-  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"]
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
+  "overrides": [
+    {
+      "files": ["scripts/build.ts"],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off"
+      },
+      "env": {
+        "node": true
+      }
+    }
+  ]
 }

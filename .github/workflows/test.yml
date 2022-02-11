@@ -1,13 +1,15 @@
 name: 'build-test'
-on: # rebuild any PRs and main branch changes
+on:
   pull_request:
   push:
     branches:
       - main
-      - 'releases/*'
+
+env:
+  PAGES_PROJECT_NAME: cloudflare-pages-deploy-action
 
 jobs:
-  build: # make sure build/ci work properly
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -21,13 +23,28 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           flag-name: unit
 
-  test: # make sure the action works on a clean machine without building
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: ./
+      - name: Test Production
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: ./
         with:
           account-id: '${{ secrets.CF_ACCOUNT_ID }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ secrets.PAGES_PROJECT_NAME }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          production: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test Preview
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: ./
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          branch: ${{ github.head_ref }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
