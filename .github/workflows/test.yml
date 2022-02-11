@@ -37,15 +37,15 @@ jobs:
           production: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  # test-branch:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: ./
-  #       with:
-  #         account-id: '${{ secrets.CF_ACCOUNT_ID }}'
-  #         api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
-  #         email: '${{ secrets.CF_EMAIL }}'
-  #         project-name: '${{ env.PAGES_PROJECT_NAME }}'
-  #         branch: preview-test
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  test-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          branch: ${{ github.head_ref }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

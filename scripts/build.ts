@@ -28,7 +28,7 @@ function ensureDir(): void {
 
 async function getGitInfo(): Promise<[sha1: string, branch: string]> {
   const { stdout: sha1 } = await exec('git rev-parse HEAD')
-  const { stdout: branch } = await exec('git rev-parse --abbrev-ref HEAD')
+  const { stdout: branch } = await exec('git branch --show-current')
   return [sha1.trim(), branch.trim()]
 }
 
