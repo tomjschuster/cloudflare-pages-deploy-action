@@ -4,7 +4,7 @@ import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './
 import { deploy } from './deploy'
 import { DeployHookDeleteError, DeploymentError } from './errors'
 import { createGithubCloudfrontDeploymentHandlers } from './github'
-import { Deployment, StageName } from './types'
+import { Deployment, DeploymentHandlers, StageName } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
@@ -21,12 +21,8 @@ export async function run(): Promise<void> {
 
   const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
 
-  const handlers = githubToken
-    ? createGithubCloudfrontDeploymentHandlers(accountId, githubToken)
-    : undefined
-
   try {
-    deployment = await deploy(sdk, branch, handlers)
+    deployment = await deploy(sdk, branch, getDeploymentHanlders(accountId, githubToken))
     setOutputFromDeployment(deployment)
   } catch (error) {
     handleError(accountId, projectName, error, deployment)
@@ -135,4 +131,17 @@ function logSuccess({ project_name, url, latest_stage }: Deployment): void {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   console.log(`Successfully deployed ${project_name} at ${latest_stage!.ended_on}.`)
   console.log(`URL: ${url}`)
+}
+
+function getDeploymentHanlders(
+  accountId: string,
+  githubToken: string | undefined,
+): DeploymentHandlers | undefined {
+  if (!githubToken) {
+    console.log('No GitHub token provided, skipping GitHub deployments.')
+    return
+  }
+
+  console.log('GitHub token provided. GitHub deployment will be created.')
+  return createGithubCloudfrontDeploymentHandlers(accountId, githubToken)
 }
