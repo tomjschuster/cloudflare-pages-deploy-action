@@ -39,7 +39,7 @@ jest.mock('node-fetch', () => ({
   ),
 }))
 
-describe('sdk', () => {
+describe('createSdk', () => {
   let sdk: PagesSdk
 
   beforeEach(() => {

@@ -3,6 +3,7 @@ import createPagesSdk from '../src/cloudflare'
 import { deploy } from '../src/deploy'
 import { DeployHookDeleteError, DeploymentError } from '../src/errors'
 import { run } from '../src/run'
+import { DeploymentHandlers } from '../src/types'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
 import { failedLiveDeployment } from '../__fixtures__/failedDeployment'
 import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeployment'
@@ -15,6 +16,17 @@ jest.mock('@actions/core', () => ({
 }))
 jest.mock('../src/deploy', () => ({ deploy: jest.fn() }))
 jest.mock('../src/cloudflare', () => ({ __esModule: true, default: jest.fn(() => ({})) }))
+
+const mockGithubHandlers: DeploymentHandlers = {
+  onStart: jest.fn(),
+  onStageChange: jest.fn(),
+  onSuccess: jest.fn(),
+  onFailure: jest.fn(),
+}
+
+jest.mock('../src/github', () => ({
+  createGithubCloudfrontDeploymentHandlers: jest.fn(() => mockGithubHandlers),
+}))
 
 describe('run', () => {
   let consoleLog: jest.SpyInstance<void, Parameters<typeof console.log>>
@@ -151,7 +163,8 @@ describe('run', () => {
 
     await run()
 
-    expect(consoleLog).toHaveBeenCalledTimes(1)
+    // 1 for failure, 1 for GitHub deployment
+    expect(consoleLog).toHaveBeenCalledTimes(2)
     expect(setFailed).toHaveBeenCalled()
   })
 
@@ -161,8 +174,8 @@ describe('run', () => {
 
     await run()
 
-    // 1 for failed deploy, 1 for failed hook deletion
-    expect(consoleLog).toHaveBeenCalledTimes(2)
+    // 1 for failed deploy, 1 for failed hook deletion, 1 for GitHub deployment
+    expect(consoleLog).toHaveBeenCalledTimes(3)
     expect(setFailed).toHaveBeenCalled()
   })
 
@@ -173,5 +186,53 @@ describe('run', () => {
     await run()
 
     expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('creates GitHub deploy handlers when token provided', async () => {
+    ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
+    // branch
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+    ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getInput as jest.Mock).mockReturnValueOnce('githubToken')
+
+    await run()
+
+    expect(deploy).toHaveBeenCalledWith(expect.any(Object), undefined, expect.any(Object))
+  })
+
+  it('marks a GitHub deploy as success', async () => {
+    ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
+    // branch
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+    ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getInput as jest.Mock).mockReturnValueOnce('githubToken')
+
+    await run()
+
+    expect(mockGithubHandlers.onSuccess).toHaveBeenCalledWith()
+  })
+
+  it('marks a GitHub deploy as failed after a failed build', async () => {
+    ;(deploy as jest.Mock).mockResolvedValueOnce(failedLiveDeployment)
+    // branch
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+    ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getInput as jest.Mock).mockReturnValueOnce('githubToken')
+
+    await run()
+
+    expect(mockGithubHandlers.onFailure).toHaveBeenCalledWith()
+  })
+
+  it('marks a GitHub deploy as failed after an error', async () => {
+    ;(deploy as jest.Mock).mockRejectedValue(new DeploymentError(new Error('foo'), deployment))
+    // branch
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+    ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getInput as jest.Mock).mockReturnValueOnce('githubToken')
+
+    await run()
+
+    expect(mockGithubHandlers.onFailure).toHaveBeenCalledWith()
   })
 })

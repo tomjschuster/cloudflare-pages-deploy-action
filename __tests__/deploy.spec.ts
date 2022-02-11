@@ -2,6 +2,7 @@ import * as actionsCore from '@actions/core'
 import { PagesSdk } from '../src/cloudflare'
 import { deploy, stagePollIntervalEnvName } from '../src/deploy'
 import { DeploymentError } from '../src/errors'
+import { DeploymentHandlers } from '../src/types'
 import {
   buildLogs,
   cloneRepoLogs,
@@ -260,5 +261,27 @@ describe('deploy', () => {
     const error = new DeploymentError(new Error('foo'), initialLiveDeployment)
 
     await expect(deploy(sdk, accountId)).rejects.toThrowError(error)
+  })
+
+  it('calls onStart and onChange', async () => {
+    const mockGithubHandlers: DeploymentHandlers = {
+      onStart: jest.fn(),
+      onStageChange: jest.fn(),
+      onSuccess: jest.fn(),
+      onFailure: jest.fn(),
+    }
+
+    sdk.createDeployment.mockResolvedValueOnce(completedDeployment)
+    sdk.getStageLogs.mockResolvedValueOnce(queuedLogs)
+    sdk.getStageLogs.mockResolvedValueOnce(initializeLogs)
+    sdk.getStageLogs.mockResolvedValueOnce(cloneRepoLogs)
+    sdk.getStageLogs.mockResolvedValueOnce(buildLogs)
+    sdk.getStageLogs.mockResolvedValueOnce(deployLogs)
+    sdk.getDeploymentInfo.mockResolvedValueOnce(completedDeployment)
+
+    await expect(deploy(sdk, accountId, mockGithubHandlers)).resolves.toEqual(completedDeployment)
+
+    expect(mockGithubHandlers.onStart).toHaveBeenCalledWith(completedDeployment)
+    expect(mockGithubHandlers.onStageChange).toHaveBeenCalledWith('initialize')
   })
 })

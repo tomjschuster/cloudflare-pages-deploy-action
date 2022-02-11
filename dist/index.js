@@ -389,39 +389,30 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
     let deployment;
     function deploy(newDeployment) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('CREATING GITHUB DEPLOYMENT');
             id = yield createGitHubDeployment(octokit, accountId, newDeployment);
             deployment = newDeployment;
-            console.log('GITHUB DEPLOYMENT CREATED', id);
         });
     }
     function updateState(stageName) {
         return __awaiter(this, void 0, void 0, function* () {
             const state = githubDeployStateFromStage(stageName);
-            console.log('STAGE', stageName, state, id, !!deployment);
             if (!state || !id || !deployment)
                 return;
-            console.log('UPDATING GITHUB DEPLOYMENT', state);
             yield createGitHubDeploymentStatus(octokit, accountId, id, state, deployment);
-            console.log('UPDATED GITHUB DEPLOYMENT', state);
         });
     }
     function setFailure() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!id || !deployment)
                 return;
-            console.log('SETTING GITHUB FAILURE');
             yield createGitHubDeploymentStatus(octokit, accountId, id, 'failure', deployment);
-            console.log('SET GITHUB FAILURE');
         });
     }
     function setSuccess() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!id || !deployment)
                 return;
-            console.log('SETTING GITHUB SUCCESS');
             yield createGitHubDeploymentStatus(octokit, accountId, id, 'success', deployment);
-            console.log('SET GITHUB SUCCESS');
         });
     }
     return {
@@ -457,7 +448,6 @@ function cfDeploymentParams(accountId, { id, project_name, source, deployment_tr
         production_environment: environment === 'production',
         log_url: (0, dashboard_1.dashboardDeploymentUrl)(accountId, project_name, id),
     };
-    console.log({ params });
     return params;
 }
 function githubEnvironmentFromDeployment(environment, branch) {

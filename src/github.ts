@@ -15,36 +15,27 @@ export function createGithubCloudfrontDeploymentHandlers(
   let deployment: Deployment | undefined
 
   async function deploy(newDeployment: Deployment): Promise<void> {
-    console.log('CREATING GITHUB DEPLOYMENT')
     id = await createGitHubDeployment(octokit, accountId, newDeployment)
     deployment = newDeployment
-    console.log('GITHUB DEPLOYMENT CREATED', id)
   }
 
   async function updateState(stageName: StageName): Promise<void> {
     const state = githubDeployStateFromStage(stageName)
-    console.log('STAGE', stageName, state, id, !!deployment)
     if (!state || !id || !deployment) return
 
-    console.log('UPDATING GITHUB DEPLOYMENT', state)
     await createGitHubDeploymentStatus(octokit, accountId, id, state, deployment)
-    console.log('UPDATED GITHUB DEPLOYMENT', state)
   }
 
   async function setFailure(): Promise<void> {
     if (!id || !deployment) return
 
-    console.log('SETTING GITHUB FAILURE')
     await createGitHubDeploymentStatus(octokit, accountId, id, 'failure', deployment)
-    console.log('SET GITHUB FAILURE')
   }
 
   async function setSuccess(): Promise<void> {
     if (!id || !deployment) return
 
-    console.log('SETTING GITHUB SUCCESS')
     await createGitHubDeploymentStatus(octokit, accountId, id, 'success', deployment)
-    console.log('SET GITHUB SUCCESS')
   }
 
   return {
@@ -128,8 +119,6 @@ function cfDeploymentParams(
     production_environment: environment === 'production',
     log_url: dashboardDeploymentUrl(accountId, project_name, id),
   }
-
-  console.log({ params })
 
   return params
 }
