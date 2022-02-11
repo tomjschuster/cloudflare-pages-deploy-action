@@ -61,7 +61,7 @@ function getInputs(): Inputs {
     projectName: getInput('project-name', { required: true }),
     production: getBooleanInput('production'),
     branch: getInput('branch'),
-    githubToken: getInput('githubToken'),
+    githubToken: getInput('github-token'),
   }
 }
 

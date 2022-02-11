@@ -14,14 +14,16 @@ export function createGithubCloudfrontDeploymentHandlers(
   let id: number | undefined
   let deployment: Deployment | undefined
 
-  async function deploy(deployment: Deployment): Promise<void> {
+  async function deploy(newDeployment: Deployment): Promise<void> {
     console.log('CREATING GITHUB DEPLOYMENT')
-    id = await createGitHubDeployment(octokit, accountId, deployment)
-    console.log('GITHUB DEPLOYMENT CREATED')
+    id = await createGitHubDeployment(octokit, accountId, newDeployment)
+    deployment = newDeployment
+    console.log('GITHUB DEPLOYMENT CREATED', id)
   }
 
   async function updateState(stageName: StageName): Promise<void> {
     const state = githubDeployStateFromStage(stageName)
+    console.log('STAGE', stageName, state, id, !!deployment)
     if (!state || !id || !deployment) return
 
     console.log('UPDATING GITHUB DEPLOYMENT', state)
