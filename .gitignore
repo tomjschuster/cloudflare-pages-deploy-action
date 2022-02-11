@@ -1,3 +1,6 @@
+# Build
+out
+
 # Dependency directory
 node_modules
 

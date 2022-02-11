@@ -7,7 +7,7 @@ on:
       - 'releases/*'
 
 env:
-  PAGES_PROJECT_NAME: example-cloudflare-pages-site
+  PAGES_PROJECT_NAME: cloudflare-pages-deploy-action
 
 jobs:
   build:

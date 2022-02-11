@@ -6,6 +6,7 @@
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
+    "build:e2e": "./scripts/build.sh",
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
