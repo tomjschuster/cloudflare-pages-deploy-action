@@ -20,22 +20,26 @@ export async function run(): Promise<void> {
   }
 
   const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
+  const githubHandlers = getDeploymentHanlders(accountId, githubToken)
 
   try {
-    deployment = await deploy(sdk, branch, getDeploymentHanlders(accountId, githubToken))
+    deployment = await deploy(sdk, branch, githubHandlers)
     setOutputFromDeployment(deployment)
   } catch (error) {
     handleError(accountId, projectName, error, deployment)
+    await githubHandlers?.onFailure()
     setFailed(error instanceof Error ? error.message : `${error}`)
     return
   }
 
   const failureMessage = checkDeploymentFailure(deployment)
   if (failureMessage) {
+    await githubHandlers?.onFailure()
     setFailed(failureMessage)
     return
   }
 
+  await githubHandlers?.onSuccess()
   logSuccess(deployment)
 }
 

@@ -15,17 +15,42 @@ export function createGithubCloudfrontDeploymentHandlers(
   let deployment: Deployment | undefined
 
   async function deploy(deployment: Deployment): Promise<void> {
+    console.log('CREATING GITHUB DEPLOYMENT')
     id = await createGitHubDeployment(octokit, accountId, deployment)
+    console.log('GITHUB DEPLOYMENT CREATED')
   }
 
   async function updateState(stageName: StageName): Promise<void> {
     const state = githubDeployStateFromStage(stageName)
     if (!state || !id || !deployment) return
 
+    console.log('UPDATING GITHUB DEPLOYMENT', state)
     await createGitHubDeploymentStatus(octokit, accountId, id, state, deployment)
+    console.log('UPDATED GITHUB DEPLOYMENT', state)
   }
 
-  return { onStart: deploy, onStageChange: updateState }
+  async function setFailure(): Promise<void> {
+    if (!id || !deployment) return
+
+    console.log('SETTING GITHUB FAILURE')
+    await createGitHubDeploymentStatus(octokit, accountId, id, 'failure', deployment)
+    console.log('SET GITHUB FAILURE')
+  }
+
+  async function setSuccess(): Promise<void> {
+    if (!id || !deployment) return
+
+    console.log('SETTING GITHUB SUCCESS')
+    await createGitHubDeploymentStatus(octokit, accountId, id, 'success', deployment)
+    console.log('SET GITHUB SUCCESS')
+  }
+
+  return {
+    onStart: deploy,
+    onStageChange: updateState,
+    onSuccess: setSuccess,
+    onFailure: setFailure,
+  }
 }
 
 function createGitHubDeployment(

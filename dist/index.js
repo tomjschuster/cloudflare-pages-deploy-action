@@ -387,7 +387,9 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
     let deployment;
     function deploy(deployment) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('CREATING GITHUB DEPLOYMENT');
             id = yield createGitHubDeployment(octokit, accountId, deployment);
+            console.log('GITHUB DEPLOYMENT CREATED');
         });
     }
     function updateState(stageName) {
@@ -395,10 +397,35 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
             const state = githubDeployStateFromStage(stageName);
             if (!state || !id || !deployment)
                 return;
+            console.log('UPDATING GITHUB DEPLOYMENT', state);
             yield createGitHubDeploymentStatus(octokit, accountId, id, state, deployment);
+            console.log('UPDATED GITHUB DEPLOYMENT', state);
         });
     }
-    return { onStart: deploy, onStageChange: updateState };
+    function setFailure() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!id || !deployment)
+                return;
+            console.log('SETTING GITHUB FAILURE');
+            yield createGitHubDeploymentStatus(octokit, accountId, id, 'failure', deployment);
+            console.log('SET GITHUB FAILURE');
+        });
+    }
+    function setSuccess() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!id || !deployment)
+                return;
+            console.log('SETTING GITHUB SUCCESS');
+            yield createGitHubDeploymentStatus(octokit, accountId, id, 'success', deployment);
+            console.log('SET GITHUB SUCCESS');
+        });
+    }
+    return {
+        onStart: deploy,
+        onStageChange: updateState,
+        onSuccess: setSuccess,
+        onFailure: setFailure,
+    };
 }
 exports.createGithubCloudfrontDeploymentHandlers = createGithubCloudfrontDeploymentHandlers;
 function createGitHubDeployment(octokit, accountId, cfDeployment) {
@@ -481,23 +508,24 @@ function run() {
             return;
         }
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
-        const handlers = githubToken
-            ? (0, github_1.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken)
-            : undefined;
+        const githubHandlers = getDeploymentHanlders(accountId, githubToken);
         try {
-            deployment = yield (0, deploy_1.deploy)(sdk, branch, handlers);
+            deployment = yield (0, deploy_1.deploy)(sdk, branch, githubHandlers);
             setOutputFromDeployment(deployment);
         }
         catch (error) {
             handleError(accountId, projectName, error, deployment);
+            yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure());
             (0, core_1.setFailed)(error instanceof Error ? error.message : `${error}`);
             return;
         }
         const failureMessage = checkDeploymentFailure(deployment);
         if (failureMessage) {
+            yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure());
             (0, core_1.setFailed)(failureMessage);
             return;
         }
+        yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onSuccess());
         logSuccess(deployment);
     });
 }
@@ -564,6 +592,14 @@ function logSuccess({ project_name, url, latest_stage }) {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
     console.log(`URL: ${url}`);
+}
+function getDeploymentHanlders(accountId, githubToken) {
+    if (!githubToken) {
+        console.log('No GitHub token provided, skipping GitHub deployments.');
+        return;
+    }
+    console.log('GitHub token provided. GitHub deployment will be created.');
+    return (0, github_1.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
 }
 
 
