@@ -6,7 +6,7 @@
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
-    "build:pages": "./scripts/build.sh",
+    "build:pages": "ts-node scripts/build.ts",
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
@@ -31,7 +31,8 @@
     "@actions/core": "^1.6.0",
     "@actions/github": "^5.0.0",
     "nanoid": "^3.2.0",
-    "node-fetch": "^3.2.0"
+    "node-fetch": "^3.2.0",
+    "ts-node": "^10.5.0"
   },
   "devDependencies": {
     "@types/jest": "^27.4.0",
