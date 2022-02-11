@@ -14,21 +14,26 @@ import {
 
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4'
 
-export type SdkConfig = {
+export type PagesSdkConfig = {
   accountId: string
   apiKey: string
   email: string
   projectName: string
 }
 
-export type Sdk = {
+export type PagesSdk = {
   getProject(): Promise<Project>
   createDeployment(branch?: string): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
   getStageLogs(deploymentId: string, stageName: StageName): Promise<StageLogsResult>
 }
 
-export default function createSdk({ accountId, apiKey, email, projectName }: SdkConfig): Sdk {
+export default function createPagesSdk({
+  accountId,
+  apiKey,
+  email,
+  projectName,
+}: PagesSdkConfig): PagesSdk {
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
     const result = (await fetch(`${CF_BASE_URL}${path}`, {
       method,

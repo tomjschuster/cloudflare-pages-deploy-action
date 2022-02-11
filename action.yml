@@ -22,6 +22,8 @@ inputs:
     default: false
   branch:
     description: 'Name of the branch to be deployed. Cannot be used together with "production".'
+  githubToken:
+    required: false
 outputs:
   deploymentId:
     description: 'Identifier of the completed deployment'

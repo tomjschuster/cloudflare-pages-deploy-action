@@ -1,8 +1,8 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
+import createPagesSdk from '../src/cloudflare'
 import { deploy } from '../src/deploy'
 import { DeployHookDeleteError, DeploymentError } from '../src/errors'
 import { run } from '../src/run'
-import createSdk from '../src/sdk'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
 import { failedLiveDeployment } from '../__fixtures__/failedDeployment'
 import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeployment'
@@ -14,7 +14,7 @@ jest.mock('@actions/core', () => ({
   setFailed: jest.fn(),
 }))
 jest.mock('../src/deploy', () => ({ deploy: jest.fn() }))
-jest.mock('../src/sdk', () => ({ __esModule: true, default: jest.fn(() => ({})) }))
+jest.mock('../src/cloudflare', () => ({ __esModule: true, default: jest.fn(() => ({})) }))
 
 describe('run', () => {
   let consoleLog: jest.SpyInstance<void, Parameters<typeof console.log>>
@@ -34,7 +34,7 @@ describe('run', () => {
 
     await run()
 
-    expect(createSdk).toHaveBeenCalledWith({
+    expect(createPagesSdk).toHaveBeenCalledWith({
       apiKey: 'apiKey',
       email: 'email',
       accountId: 'accountId',
@@ -42,23 +42,23 @@ describe('run', () => {
     })
   })
 
-  it('creates calls deploy with no branch when production is set', async () => {
+  it('calls deploy with no branch when production is set', async () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
     await run()
 
-    expect(deploy).toHaveBeenCalledWith(expect.any(Object), undefined)
+    expect(deploy).toHaveBeenCalledWith(expect.any(Object), undefined, undefined)
   })
 
-  it('creates calls deploy with a branch when branch is set', async () => {
+  it('calls deploy with a branch when branch is set', async () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
     ;(getInput as jest.Mock).mockReturnValueOnce('foo')
 
     await run()
 
-    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo')
+    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo', undefined)
   })
 
   it('sets outputs with the created deployment', async () => {

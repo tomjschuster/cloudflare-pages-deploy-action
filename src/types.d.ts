@@ -119,3 +119,8 @@ export type DeployHook = {
 export type DeployHookResult = {
   id: string
 }
+
+export type DeploymentHandlers = {
+  onStart: (deployment: Deployment) => Promise<void>
+  onStageChange: (stageName: StageName) => Promise<void>
+}

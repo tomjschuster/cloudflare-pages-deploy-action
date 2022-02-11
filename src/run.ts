@@ -1,15 +1,16 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
+import createPagesSdk from './cloudflare'
 import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
 import { deploy } from './deploy'
 import { DeployHookDeleteError, DeploymentError } from './errors'
-import createSdk from './sdk'
+import { createGithubCloudfrontDeploymentHandlers } from './github'
 import { Deployment, StageName } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
   let deployment: Deployment | undefined
 
-  const { accountId, apiKey, email, projectName, production, branch } = getInputs()
+  const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs()
 
   const branchError = validateBranch(production, branch)
 
@@ -18,10 +19,14 @@ export async function run(): Promise<void> {
     return
   }
 
-  const sdk = createSdk({ accountId, apiKey, email, projectName })
+  const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
+
+  const handlers = githubToken
+    ? createGithubCloudfrontDeploymentHandlers(accountId, githubToken)
+    : undefined
 
   try {
-    deployment = await deploy(sdk, branch)
+    deployment = await deploy(sdk, branch, handlers)
     setOutputFromDeployment(deployment)
   } catch (error) {
     handleError(accountId, projectName, error, deployment)
@@ -45,6 +50,7 @@ type Inputs = {
   projectName: string
   production: boolean
   branch?: string
+  githubToken?: string
 }
 
 function getInputs(): Inputs {
@@ -55,6 +61,7 @@ function getInputs(): Inputs {
     projectName: getInput('project-name', { required: true }),
     production: getBooleanInput('production'),
     branch: getInput('branch'),
+    githubToken: getInput('githubToken'),
   }
 }
 
@@ -103,7 +110,7 @@ function failedDeployMessage(stageName: StageName): string {
 }
 
 function unexpectedErrorMessage(accountId: string, projectName: string, deployment?: Deployment) {
-  const url = dashboardDeploymentUrl(accountId, projectName, deployment)
+  const url = dashboardDeploymentUrl(accountId, projectName, deployment?.id)
   return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`
 }
 

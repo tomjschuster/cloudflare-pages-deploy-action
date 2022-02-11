@@ -1,15 +1,13 @@
-import { Deployment } from './types'
-
 export function dashboardDeploymentUrl(
   accountId: string,
   projectName: string,
-  deployment?: Deployment,
+  deploymentId?: string,
 ): string {
-  if (!deployment) {
+  if (!deploymentId) {
     return baseDashboardUrl(accountId, projectName)
   }
 
-  return `${baseDashboardUrl(accountId, projectName)}/${deployment.id}`
+  return `${baseDashboardUrl(accountId, projectName)}/${deploymentId}`
 }
 
 export function dashboardBuildDeploymentsSettingsUrl(

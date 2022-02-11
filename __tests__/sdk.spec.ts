@@ -1,6 +1,6 @@
 import fetch from 'node-fetch'
+import createPagesSdk, { PagesSdk } from '../src/cloudflare'
 import { DeployHookDeleteError } from '../src/errors'
-import createSdk, { Sdk } from '../src/sdk'
 import { ApiResult } from '../src/types'
 
 const success: ApiResult<null> = {
@@ -40,12 +40,12 @@ jest.mock('node-fetch', () => ({
 }))
 
 describe('sdk', () => {
-  let sdk: Sdk
+  let sdk: PagesSdk
 
   beforeEach(() => {
     jest.clearAllMocks()
 
-    sdk = createSdk({
+    sdk = createPagesSdk({
       accountId: '5790cddd-6172-4135-b275-2a64c49167d7',
       apiKey: '076758732de5497881a1cece814ff4faee9ab',
       email: 'name@example.com',
@@ -261,7 +261,7 @@ describe('sdk', () => {
     })
 
     await expect(sdk.createDeployment()).rejects.toThrowError(
-      '[Cloudflare API Error]:\nAn unknown error occurred [8000000]',
+      '[Cloudflare API Error]\nAn unknown error occurred [8000000]',
     )
   })
 

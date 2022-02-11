@@ -1,7 +1,7 @@
 import * as actionsCore from '@actions/core'
+import { PagesSdk } from '../src/cloudflare'
 import { deploy, stagePollIntervalEnvName } from '../src/deploy'
 import { DeploymentError } from '../src/errors'
-import { Sdk } from '../src/sdk'
 import {
   buildLogs,
   cloneRepoLogs,
@@ -70,12 +70,13 @@ import {
 import { noStageDeployment } from '../__fixtures__/noStageDeployment'
 import { oneStageDeployLogs, oneStageDeployment } from '../__fixtures__/oneStageDeployment'
 
-const getProject: jest.Mock<ReturnType<Sdk['getProject']>> = jest.fn()
-const createDeployment: jest.Mock<ReturnType<Sdk['createDeployment']>> = jest.fn()
-const getDeploymentInfo: jest.Mock<ReturnType<Sdk['getDeploymentInfo']>> = jest.fn()
-const getStageLogs: jest.Mock<ReturnType<Sdk['getStageLogs']>> = jest.fn()
+const getProject: jest.Mock<ReturnType<PagesSdk['getProject']>> = jest.fn()
+const createDeployment: jest.Mock<ReturnType<PagesSdk['createDeployment']>> = jest.fn()
+const getDeploymentInfo: jest.Mock<ReturnType<PagesSdk['getDeploymentInfo']>> = jest.fn()
+const getStageLogs: jest.Mock<ReturnType<PagesSdk['getStageLogs']>> = jest.fn()
 
 const sdk = { getProject, createDeployment, getDeploymentInfo, getStageLogs }
+const accountId = '414fd50d-cb74-4dca-8d2e-ee9601a3f826'
 
 describe('deploy', () => {
   const env = process.env
@@ -112,7 +113,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeployment)
 
-    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeployment)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(completeLiveDeployment)
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(11)
     // extra log for build
     expect(consoleSpy).toHaveBeenCalledTimes(11)
@@ -133,7 +134,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeployment)
 
-    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeployment)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(completeLiveDeployment)
     // 1 call for queued stage, 2 logs for each other stage
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(9)
     // Skip queued stage, 2 logs for each other stage, extra log for build
@@ -151,7 +152,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(deployLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completedDeployment)
 
-    await expect(deploy(sdk)).resolves.toEqual(completedDeployment)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(completedDeployment)
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(5)
     // Skip queued stage, 2 logs for each other stage, extra log for build
     expect(consoleSpy).toHaveBeenCalledTimes(9)
@@ -164,7 +165,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(oneStageDeployLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(oneStageDeployment)
 
-    await expect(deploy(sdk)).resolves.toEqual(oneStageDeployment)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(oneStageDeployment)
     expect(consoleSpy).toHaveBeenCalledTimes(2)
     expect(startGroupSpy).toHaveBeenCalledTimes(1)
     expect(endGroupSpy).toHaveBeenCalledTimes(1)
@@ -174,7 +175,7 @@ describe('deploy', () => {
     sdk.createDeployment.mockResolvedValueOnce(noStageDeployment)
     sdk.getDeploymentInfo.mockResolvedValueOnce(noStageDeployment)
 
-    await expect(deploy(sdk)).resolves.toEqual(noStageDeployment)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(noStageDeployment)
     expect(consoleSpy).not.toHaveBeenCalled()
     expect(startGroupSpy).not.toHaveBeenCalled()
     expect(endGroupSpy).not.toHaveBeenCalled()
@@ -191,7 +192,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(failedFailureBuildLogs)
     sdk.getDeploymentInfo.mockResolvedValueOnce(failedLiveDeployment)
 
-    await expect(deploy(sdk)).resolves.toEqual(failedLiveDeployment)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(failedLiveDeployment)
     // 1 call for queued stage, 2 logs for each other stage, skip deploy
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(7)
     // Skip queued stage, 2 logs for each other stage, extra log for build, skip deploy
@@ -216,7 +217,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogsUnexpectedStage)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStage)
 
-    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeploymentUnexpectedStage)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(completeLiveDeploymentUnexpectedStage)
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(12)
     // extra log for build
     expect(consoleSpy).toHaveBeenCalledTimes(13)
@@ -244,7 +245,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(completeDeployLogsUnexpectedStatus)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStatus)
 
-    await expect(deploy(sdk)).resolves.toEqual(completeLiveDeploymentUnexpectedStatus)
+    await expect(deploy(sdk, accountId)).resolves.toEqual(completeLiveDeploymentUnexpectedStatus)
     expect(sdk.getStageLogs).toHaveBeenCalledTimes(16)
     // extra log for build
     expect(consoleSpy).toHaveBeenCalledTimes(11)
@@ -258,6 +259,6 @@ describe('deploy', () => {
 
     const error = new DeploymentError(new Error('foo'), initialLiveDeployment)
 
-    await expect(deploy(sdk)).rejects.toThrowError(error)
+    await expect(deploy(sdk, accountId)).rejects.toThrowError(error)
   })
 })

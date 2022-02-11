@@ -14,7 +14,7 @@ export class CloudFlareApiError extends Error {
 
 function formatApiErrors(errors: ApiErrorEntry[]): string {
   const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
-  return apiErrors ? `[Cloudflare API Error]:\n${apiErrors}` : '[Cloudflare API Error]'
+  return apiErrors ? `[Cloudflare API Error]\n${apiErrors}` : '[Cloudflare API Error]'
 }
 
 export class DeploymentError extends Error {
@@ -54,5 +54,13 @@ export class DeployHookDeleteError extends Error {
     Object.setPrototypeOf(this, DeployHookDeleteError.prototype)
 
     this.hookName = hookName
+  }
+}
+
+export class GithubApiError extends Error {
+  constructor(status: number, message?: string) {
+    super(`[GitHub API Error] Status: ${status}${message && `, Message: ${message}`}`)
+
+    Object.setPrototypeOf(this, DeployHookDeleteError.prototype)
   }
 }
