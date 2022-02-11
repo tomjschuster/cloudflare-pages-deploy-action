@@ -16,6 +16,8 @@ export async function deploy(
   branch: string | undefined,
   handlers?: DeploymentHandlers,
 ): Promise<Deployment> {
+  // @ts-expect-error foo
+  await handlers?.onStart()
   const deployment = await sdk.createDeployment(branch)
   await handlers?.onStart(deployment)
 

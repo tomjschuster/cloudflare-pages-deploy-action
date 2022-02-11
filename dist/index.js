@@ -161,6 +161,8 @@ const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
 function deploy(sdk, branch, handlers) {
     return __awaiter(this, void 0, void 0, function* () {
+        // @ts-expect-error foo
+        yield (handlers === null || handlers === void 0 ? void 0 : handlers.onStart());
         const deployment = yield sdk.createDeployment(branch);
         yield (handlers === null || handlers === void 0 ? void 0 : handlers.onStart(deployment));
         try {
@@ -387,6 +389,8 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
     let deployment;
     function deploy(deployment) {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('USER TEST', yield octokit.rest.users.getAuthenticated());
+            throw new Error('foo');
             console.log('CREATING GITHUB DEPLOYMENT');
             id = yield createGitHubDeployment(octokit, accountId, deployment);
             console.log('GITHUB DEPLOYMENT CREATED');

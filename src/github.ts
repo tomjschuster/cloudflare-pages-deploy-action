@@ -11,10 +11,13 @@ export function createGithubCloudfrontDeploymentHandlers(
   token: string,
 ): DeploymentHandlers {
   const octokit = getOctokit(token)
+
   let id: number | undefined
   let deployment: Deployment | undefined
 
   async function deploy(deployment: Deployment): Promise<void> {
+    console.log('USER TEST', await octokit.rest.users.getAuthenticated())
+    throw new Error('foo')
     console.log('CREATING GITHUB DEPLOYMENT')
     id = await createGitHubDeployment(octokit, accountId, deployment)
     console.log('GITHUB DEPLOYMENT CREATED')
