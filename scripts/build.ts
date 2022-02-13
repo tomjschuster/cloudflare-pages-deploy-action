@@ -8,8 +8,8 @@ build()
 async function build(): Promise<void> {
   await ensureDir()
   const sha1 = await getGitSha1()
-  const color1 = randomColor()
-  const color2 = randomColor()
+  const color1 = randomHexColor()
+  const color2 = randomHexColor()
   const html = generateHtml(new Date(), sha1, color1, color2)
 
   console.log('Generating static HTML...')
@@ -31,8 +31,10 @@ async function getGitSha1(): Promise<string> {
   return sha1.trim()
 }
 
-function randomColor(): string {
-  return Math.floor(Math.random() * 16777215).toString(16)
+function randomHexColor(): string {
+  return '#000000'.replace(/0/g, function () {
+    return (~~(Math.random() * 16)).toString(16)
+  })
 }
 
 function generateHtml(date: Date, sha1: string, color1: string, color2: string): string {
@@ -102,8 +104,8 @@ function generateHtml(date: Date, sha1: string, color1: string, color2: string):
 
       .color-banner {
         height: 1.5rem;
-        background-color: #${color1};
-        background-image: linear-gradient(to right, #${color1}, #${color2});
+        background-color: ${color1};
+        background-image: linear-gradient(to right, ${color1}, ${color2});
       }
 
  
