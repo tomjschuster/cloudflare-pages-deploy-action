@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.7](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.6...v0.0.7) (2022-02-13)
+
+
+### Bug Fixes
+
+* check deployment instead of next stage when stuck polling ([#28](https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues/28)) ([5675dd5](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/5675dd54785bab36731b3ce7df9db1f524885ca9))
+* generate proper hex codes for build ([#29](https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues/29)) ([78ec528](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/78ec528825ae87e62f396b998f235634b3d48c78))
+
 ### [0.0.6](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.5...v0.0.6) (2022-02-11)
 
 
