@@ -54,10 +54,10 @@ import {
   initialLiveDeploymentUnexpectedStage,
 } from '../__fixtures__/liveDeploymentUnexpectedStage'
 import {
-  activeBuildLogsUnexpectedStatus,
   activeCloneRepoLogsUnexpectedStatus,
   activeDeployLogsUnexpectedStatus,
   activeInitializeLogsUnexpectedStatus,
+  activeLiveDeploymentUnexpectedStatus,
   activeQueuedLogsUnexpectedStatus,
   completeBuildLogsUnexpectedStatus,
   completeCloneRepoLogsUnexpectedStatus,
@@ -239,7 +239,7 @@ describe('deploy', () => {
     sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
-    sdk.getStageLogs.mockResolvedValueOnce(activeBuildLogsUnexpectedStatus)
+    sdk.getDeploymentInfo.mockResolvedValueOnce(activeLiveDeploymentUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(skippedTestLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(completeBuildLogsUnexpectedStatus)
     sdk.getStageLogs.mockResolvedValueOnce(activeDeployLogsUnexpectedStatus)
@@ -247,7 +247,7 @@ describe('deploy', () => {
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStatus)
 
     await expect(deploy(sdk, accountId)).resolves.toEqual(completeLiveDeploymentUnexpectedStatus)
-    expect(sdk.getStageLogs).toHaveBeenCalledTimes(16)
+    expect(sdk.getStageLogs).toHaveBeenCalledTimes(15)
     // extra log for build
     expect(consoleSpy).toHaveBeenCalledTimes(11)
     expect(startGroupSpy).toHaveBeenCalledTimes(6)
