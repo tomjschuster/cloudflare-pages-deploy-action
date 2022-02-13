@@ -83,7 +83,7 @@ export default function createPagesSdk({
     if (branch === project.source.config.production_branch) return await createDeployment()
 
     console.log('')
-    console.log(`Creating a deployment for branch "${branch}" of ${projectName}\n.`)
+    console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
 
     function createDeployHook(name: string, branch: string): Promise<DeployHook> {
       return fetchCf(

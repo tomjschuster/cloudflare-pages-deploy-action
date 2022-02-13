@@ -66,7 +66,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             if (branch === project.source.config.production_branch)
                 return yield createDeployment();
             console.log('');
-            console.log(`Creating a deployment for branch "${branch}" of ${projectName}\n.`);
+            console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
@@ -175,14 +175,10 @@ function deploy(sdk, branch, handlers) {
     });
 }
 exports.deploy = deploy;
-function logDeploymentStages(sdk, deployment, onChange) {
+function logDeploymentStages(sdk, { id, stages }, onChange) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { id, stages } = deployment;
-        for (let i = 0; i < stages.length; i++) {
-            const { name } = stages[i];
-            const nextStage = stages[i + 1];
+        for (const { name } of stages) {
             let stageLogs = yield sdk.getStageLogs(id, name);
-            let nextStageLogs;
             let lastLogId;
             if (shouldSkip(stageLogs))
                 continue;
@@ -191,6 +187,7 @@ function logDeploymentStages(sdk, deployment, onChange) {
             for (const log of extraStageLogs(name))
                 console.log(log);
             let pollAttempts = 1;
+            let skippedStage = false;
             // eslint-disable-next-line no-constant-condition
             while (true) {
                 for (const log of getNewStageLogs(stageLogs, lastLogId))
@@ -202,19 +199,20 @@ function logDeploymentStages(sdk, deployment, onChange) {
                 // Since this is not explicitly stated in the API docs, we defensively peek at the next stage
                 // every 5 polls to see if the next stage has started to reduce the probability of an infinite
                 // loop until the the job times out.
-                nextStageLogs =
-                    nextStage && pollAttempts++ % 5 === 0
-                        ? yield sdk.getStageLogs(id, nextStage.name)
-                        : undefined;
+                const deploymentInfo = pollAttempts++ % 5 === 0 ? yield sdk.getDeploymentInfo(id) : undefined;
                 lastLogId = getLastLogId(stageLogs);
                 stageLogs = yield sdk.getStageLogs(id, name);
-                if (nextStageLogs && !(0, utils_1.isStageComplete)(stageLogs) && !(0, utils_1.isStageIdle)(nextStageLogs)) {
+                // Deployment is no longer on stage, but we don't recognize stage as complete; avoid infinite loop
+                if (!(0, utils_1.isStageComplete)(stageLogs) &&
+                    (deploymentInfo === null || deploymentInfo === void 0 ? void 0 : deploymentInfo.latest_stage) &&
+                    deploymentInfo.latest_stage.name !== name) {
+                    skippedStage = true;
                     break;
                 }
             }
             (0, core_1.endGroup)();
             // If stage fails, following stages will never complete
-            if (!(0, utils_1.isStageSuccess)(stageLogs) && (!nextStageLogs || (0, utils_1.isStageIdle)(nextStageLogs)))
+            if (!(0, utils_1.isStageSuccess)(stageLogs) && !skippedStage)
                 return;
         }
     });
@@ -273,7 +271,7 @@ function getPollInterval(stage) {
         case 'build':
             return ((_a = pollIntervalFromEnv(stage.name)) !== null && _a !== void 0 ? _a : 
             /* istanbul ignore next */
-            15000);
+            10000);
         case 'clone_repo':
         case 'deploy':
         default:
@@ -607,15 +605,11 @@ function getDeploymentHanlders(accountId, githubToken) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = exports.isStageComplete = exports.isStageSuccess = exports.isStageIdle = exports.isQueuedStage = void 0;
+exports.wait = exports.isStageComplete = exports.isStageSuccess = exports.isQueuedStage = void 0;
 function isQueuedStage(stage) {
     return stage.name === 'queued';
 }
 exports.isQueuedStage = isQueuedStage;
-function isStageIdle(stage) {
-    return stage.status === 'idle';
-}
-exports.isStageIdle = isStageIdle;
 function isStageSuccess(stage) {
     return stage.status === 'success';
 }
