@@ -4,10 +4,6 @@ export function isQueuedStage(stage: Stage | StageLogsResult): boolean {
   return stage.name === 'queued'
 }
 
-export function isStageIdle(stage: Stage | StageLogsResult): boolean {
-  return stage.status === 'idle'
-}
-
 export function isStageSuccess(stage: Stage | StageLogsResult): boolean {
   return stage.status === 'success'
 }

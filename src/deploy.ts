@@ -1,15 +1,8 @@
 import { endGroup, startGroup } from '@actions/core'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
-import {
-  Deployment,
-  DeploymentHandlers,
-  Stage,
-  StageLog,
-  StageLogsResult,
-  StageName,
-} from './types'
-import { isQueuedStage, isStageComplete, isStageIdle, isStageSuccess, wait } from './utils'
+import { Deployment, DeploymentHandlers, StageLog, StageLogsResult, StageName } from './types'
+import { isQueuedStage, isStageComplete, isStageSuccess, wait } from './utils'
 
 export async function deploy(
   sdk: PagesSdk,
@@ -32,17 +25,11 @@ export async function deploy(
 
 async function logDeploymentStages(
   sdk: PagesSdk,
-  deployment: Deployment,
+  { id, stages }: Deployment,
   onChange?: (stage: StageName) => Promise<void>,
 ): Promise<void> {
-  const { id, stages } = deployment
-
-  for (let i = 0; i < stages.length; i++) {
-    const { name } = stages[i]
-    const nextStage: Stage | undefined = stages[i + 1]
-
+  for (const { name } of stages) {
     let stageLogs: StageLogsResult = await sdk.getStageLogs(id, name)
-    let nextStageLogs: StageLogsResult | undefined
     let lastLogId: number | undefined
 
     if (shouldSkip(stageLogs)) continue
@@ -54,6 +41,7 @@ async function logDeploymentStages(
     for (const log of extraStageLogs(name)) console.log(log)
 
     let pollAttempts = 1
+    let skippedStage = false
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -67,15 +55,18 @@ async function logDeploymentStages(
       // Since this is not explicitly stated in the API docs, we defensively peek at the next stage
       // every 5 polls to see if the next stage has started to reduce the probability of an infinite
       // loop until the the job times out.
-      nextStageLogs =
-        nextStage && pollAttempts++ % 5 === 0
-          ? await sdk.getStageLogs(id, nextStage.name)
-          : undefined
+      const deploymentInfo = pollAttempts++ % 5 === 0 ? await sdk.getDeploymentInfo(id) : undefined
 
       lastLogId = getLastLogId(stageLogs)
       stageLogs = await sdk.getStageLogs(id, name)
 
-      if (nextStageLogs && !isStageComplete(stageLogs) && !isStageIdle(nextStageLogs)) {
+      // Deployment is no longer on stage, but we don't recognize stage as complete; avoid infinite loop
+      if (
+        !isStageComplete(stageLogs) &&
+        deploymentInfo?.latest_stage &&
+        deploymentInfo.latest_stage.name !== name
+      ) {
+        skippedStage = true
         break
       }
     }
@@ -83,7 +74,7 @@ async function logDeploymentStages(
     endGroup()
 
     // If stage fails, following stages will never complete
-    if (!isStageSuccess(stageLogs) && (!nextStageLogs || isStageIdle(nextStageLogs))) return
+    if (!isStageSuccess(stageLogs) && !skippedStage) return
   }
 }
 
@@ -149,7 +140,7 @@ function getPollInterval(stage: StageLogsResult): number {
       return (
         pollIntervalFromEnv(stage.name) ??
         /* istanbul ignore next */
-        15000
+        10000
       )
     case 'clone_repo':
     case 'deploy':
