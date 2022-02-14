@@ -1,4 +1,5 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
+import { context } from '@actions/github'
 import createPagesSdk from './cloudflare'
 import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
 import { deploy } from './deploy'
@@ -8,6 +9,9 @@ import { Deployment, DeploymentHandlers, Stage } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
+  console.log(JSON.stringify(context, undefined, 2))
+  // eslint-disable-next-line no-constant-condition
+  if (1 === 1) process.exit(1)
   let deployment: Deployment | undefined
 
   const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs()

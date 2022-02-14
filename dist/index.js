@@ -531,14 +531,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core_1 = __nccwpck_require__(2186);
+const github_1 = __nccwpck_require__(5438);
 const cloudflare_1 = __importDefault(__nccwpck_require__(5588));
 const dashboard_1 = __nccwpck_require__(5819);
 const deploy_1 = __nccwpck_require__(7538);
 const errors_1 = __nccwpck_require__(9292);
-const github_1 = __nccwpck_require__(5928);
+const github_2 = __nccwpck_require__(5928);
 const utils_1 = __nccwpck_require__(918);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
+        console.log(JSON.stringify(github_1.context, undefined, 2));
+        // eslint-disable-next-line no-constant-condition
+        if (true)
+            process.exit(1);
         let deployment;
         const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs();
         const branchError = validateBranch(production, branch);
@@ -599,7 +604,7 @@ function getDeploymentHandlers(accountId, githubToken) {
         return;
     }
     console.log('GitHub token provided. GitHub deployment will be created.');
-    return (0, github_1.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
+    return (0, github_2.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
 }
 function setOutputFromDeployment(deployment) {
     (0, core_1.setOutput)('deployment-id', deployment.id);
