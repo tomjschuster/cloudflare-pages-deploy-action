@@ -38,6 +38,17 @@ jobs:
           production: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Test Branch
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: ./
+        with:
+          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          branch: ${{ github.head_ref }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Test Preview
         if: ${{ github.event_name == 'pull_request' }}
         uses: ./

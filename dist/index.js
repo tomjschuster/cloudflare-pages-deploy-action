@@ -594,10 +594,12 @@ function validateBranch(sdk, production, preview, branch) {
                 return '`preview` argument was provided, but current branch could not be found.';
             }
             const project = yield sdk.getProject();
-            if (currentRepo() !== projectRepo(project)) {
-                return '`preview` argument can only be used when the current repo is linked to the CloudFlare Pages project.';
+            const repo = currentRepo();
+            const pRepo = projectRepo(project);
+            if (repo !== pRepo) {
+                return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`;
             }
-            if (currentBranch() === project.source.config.production_branch) {
+            if (currentBranch() === projectProductionBranch(project)) {
                 return '`preview` argument can not be used on the production branch.';
             }
         }
@@ -668,14 +670,17 @@ function reportIssueMessage() {
     return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`;
 }
 function currentBranch() {
-    var _a, _b;
-    return (_b = (_a = github_1.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head) === null || _b === void 0 ? void 0 : _b.ref;
+    var _a;
+    return (_a = github_1.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.ref;
 }
 function currentRepo() {
     return `${github_1.context.repo.owner}/${github_1.context.repo.repo}`;
 }
 function projectRepo(project) {
     return `${project.source.config.owner}/${project.source.config.repo_name}`;
+}
+function projectProductionBranch(project) {
+    return project.source.config.production_branch;
 }
 
 

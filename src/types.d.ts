@@ -75,8 +75,8 @@ export type BuildConfig = {
   build_command: string
   destination_dir: string
   root_dir: string
-  web_analytics_tag: string | null
-  web_analytics_token: string | null
+  web_analytics_tag?: string | null
+  web_analytics_token?: string | null
 }
 
 export type Source = {

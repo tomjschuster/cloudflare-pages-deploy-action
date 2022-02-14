@@ -1,4 +1,5 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
+import * as github from '@actions/github'
 import createPagesSdk from '../src/cloudflare'
 import { deploy } from '../src/deploy'
 import { DeployHookDeleteError, DeploymentError } from '../src/errors'
@@ -7,6 +8,7 @@ import { DeploymentHandlers } from '../src/types'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
 import { failedLiveDeployment } from '../__fixtures__/failedDeployment'
 import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeployment'
+import { project } from '../__fixtures__/project'
 
 jest.mock('@actions/core', () => ({
   getInput: jest.fn(),
@@ -37,9 +39,23 @@ describe('run', () => {
     ;(getInput as jest.Mock).mockReturnValueOnce('apiKey')
     ;(getInput as jest.Mock).mockReturnValueOnce('email')
     ;(getInput as jest.Mock).mockReturnValueOnce('projectName')
+    ;(createPagesSdk as jest.Mock).mockReturnValue({ getProject: jest.fn(async () => project) })
     consoleLog = jest.spyOn(console, 'log').mockImplementation(() => undefined)
     jest.spyOn(console, 'error').mockImplementation(() => undefined)
   })
+
+  const originalContext = { ...github.context }
+
+  afterEach(() => {
+    // Restore original @actions/github context
+    Object.defineProperty(github, 'context', {
+      value: originalContext,
+    })
+  })
+
+  function mockContext(owner: string, repo: string, payload: unknown): void {
+    Object.defineProperty(github, 'context', { value: { payload: payload, repo: { owner, repo } } })
+  }
 
   it('creates an sdk with the proper inputs', async () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
@@ -68,6 +84,19 @@ describe('run', () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
     ;(getInput as jest.Mock).mockReturnValueOnce('foo')
+
+    await run()
+
+    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo', undefined)
+  })
+
+  it('calls deploy with branch from context when preview is set', async () => {
+    ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+    ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
+
+    mockContext('example-owner', 'example-project', { pull_request: { head: { ref: 'foo' } } })
 
     await run()
 
@@ -143,6 +172,39 @@ describe('run', () => {
   it('sets the job state to failed for a very long branch name', async () => {
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
     ;(getInput as jest.Mock).mockReturnValueOnce('foo'.repeat(100))
+
+    await run()
+
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets job state to failed when preview is set no pull request payload', async () => {
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+
+    mockContext('example-owner', 'example-project', { payload: {} })
+
+    await run()
+
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets job state to failed when preview is set but repo is different', async () => {
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+
+    mockContext('example-owner', 'other-project', { pull_request: { head: { ref: 'foo' } } })
+
+    await run()
+
+    expect(setFailed).toHaveBeenCalled()
+  })
+
+  it('sets job state to failed when preview is set but branch is production branch', async () => {
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(undefined)
+    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
+
+    mockContext('example-owner', 'example-project', { pull_request: { head: { ref: 'main' } } })
 
     await run()
 

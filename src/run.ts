@@ -88,12 +88,14 @@ async function validateBranch(
     }
 
     const project = await sdk.getProject()
+    const repo = currentRepo()
+    const pRepo = projectRepo(project)
 
-    if (currentRepo() !== projectRepo(project)) {
-      return '`preview` argument can only be used when the current repo is linked to the CloudFlare Pages project.'
+    if (repo !== pRepo) {
+      return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`
     }
 
-    if (currentBranch() === project.source.config.production_branch) {
+    if (currentBranch() === projectProductionBranch(project)) {
       return '`preview` argument can not be used on the production branch.'
     }
   }
@@ -184,7 +186,7 @@ function reportIssueMessage(): string {
 }
 
 function currentBranch(): string | undefined {
-  return context.payload.pull_request?.head?.ref
+  return context.payload.pull_request?.head.ref
 }
 
 function currentRepo(): string | undefined {
@@ -193,4 +195,8 @@ function currentRepo(): string | undefined {
 
 function projectRepo(project: Project): string {
   return `${project.source.config.owner}/${project.source.config.repo_name}`
+}
+
+function projectProductionBranch(project: Project): string {
+  return project.source.config.production_branch
 }
