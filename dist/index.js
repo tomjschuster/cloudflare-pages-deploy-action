@@ -578,7 +578,7 @@ function getInputs() {
 }
 function validateBranch(sdk, production, preview, branch) {
     return __awaiter(this, void 0, void 0, function* () {
-        const inputCount = [production, branch].filter((x) => x).length;
+        const inputCount = [production, preview, branch].filter((x) => x).length;
         if (inputCount > 1) {
             return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.';
         }

@@ -68,7 +68,7 @@ async function validateBranch(
   preview: boolean,
   branch?: string,
 ): Promise<string | undefined> {
-  const inputCount = [production, branch].filter((x) => x).length
+  const inputCount = [production, preview, branch].filter((x) => x).length
 
   if (inputCount > 1) {
     return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.'

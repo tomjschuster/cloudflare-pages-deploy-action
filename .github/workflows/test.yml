@@ -47,5 +47,4 @@ jobs:
           email: '${{ secrets.CF_EMAIL }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
           preview: true
-          # branch: ${{ github.head_ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
