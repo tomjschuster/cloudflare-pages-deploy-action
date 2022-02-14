@@ -28,6 +28,10 @@ export type PagesSdk = {
   getStageLogs(deploymentId: string, stageName: StageName): Promise<StageLogsResult>
 }
 
+/**
+ * Captures account/project info in closures and interprets success/failure results as
+ * a resolved/rejected Promise.
+ */
 export default function createPagesSdk({
   accountId,
   apiKey,
@@ -62,9 +66,6 @@ export default function createPagesSdk({
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
 
-    // Cloudflare API only supports triggering deployments for the production branch, however, it
-    // is possible to create deployments for any branch using ad-hoc web-hooks
-    // (CREATE/DELETE Deploy hook are undocumented so could break)
     return createBranchDeploymentUsingDeployHook(branch)
   }
 
@@ -76,6 +77,14 @@ export default function createPagesSdk({
     return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`))
   }
 
+  /**
+   * Creates a Pages deployment for any branch by creating, triggering, then deleting a deploy hook.
+   * This is because the `Create deployment` endpoint only supports triggering production deployments.
+   * If production branch is passed, we call `createDeployment` without a branch to avoid this hack.
+   *
+   * Create/Delete Deploy Hook endpoints are not documented, but are observable from the Pages dashboard
+   * when creating/deleting hooks.
+   **/
   async function createBranchDeploymentUsingDeployHook(branch: string): Promise<Deployment> {
     const project = await getProject()
 
@@ -85,6 +94,7 @@ export default function createPagesSdk({
     console.log('')
     console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
 
+    // UNDOCUMENTED ENDPOINT
     function createDeployHook(name: string, branch: string): Promise<DeployHook> {
       return fetchCf(
         projectPath(accountId, projectName, '/deploy_hooks'),
@@ -93,12 +103,13 @@ export default function createPagesSdk({
       )
     }
 
-    function executeDeployHook(id: string): Promise<DeployHookResult> {
-      return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST')
-    }
-
+    // UNDOCUMENTED ENDPOINT
     function deleteDeployHook(id: string): Promise<void> {
       return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE')
+    }
+
+    function executeDeployHook(id: string): Promise<DeployHookResult> {
+      return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST')
     }
 
     const name = `github-actions-temp-${normalizedIsoString()}-${nanoid()}`
@@ -117,7 +128,7 @@ export default function createPagesSdk({
       return await getDeploymentInfo(deploymentId)
     } catch (e) {
       // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
-      // so they know to delete it manually through the dashboard
+      // so they can delete it manually through the dashboard
       if (!deletedHook) {
         const deployHookDeleteError = new DeployHookDeleteError(e, name)
         await deleteDeployHook(hook_id).catch(() => Promise.reject(deployHookDeleteError))

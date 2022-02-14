@@ -11,6 +11,10 @@ import {
 } from './types'
 import { isQueuedStage, isStageComplete, isStageFailure, isStageSuccess, wait } from './utils'
 
+/**
+ * Creates a CloudFlare Pages for the provided branch (or production branch if no branch provided),
+ * logging output for each stage and returning the deployment on complete.
+ * */
 export async function deploy(
   sdk: PagesSdk,
   branch: string | undefined,
@@ -27,6 +31,7 @@ export async function deploy(
   }
 }
 
+/** Iterates through a deployments stages, polling and printing logs until each stage completes */
 async function logDeploymentStages(
   sdk: PagesSdk,
   { id, stages }: Deployment,
@@ -70,10 +75,15 @@ async function logDeploymentStages(
   }
 }
 
+/** Avoids logging unnecessary stages, namely to avoid logging `queued` if the build was never queued. */
 function shouldSkip(stage: Stage): boolean {
   return isQueuedStage(stage) && isStageSuccess(stage)
 }
 
+/**
+ * Returns visually friendly label for stage log group. In practice this is title case,
+ * but switch implementation gives more flexibility.
+ */
 function displayNewStage(stageName: StageName): string {
   switch (stageName) {
     case 'queued':
@@ -85,12 +95,16 @@ function displayNewStage(stageName: StageName): string {
     case 'build':
       return 'Build'
     case 'deploy':
-      return `Deploy`
+      return 'Deploy'
     default:
       return stageName
   }
 }
 
+/**
+ * Enhances CloudFlare Pages logs at start of stage, namely by marking start build step,
+ * since there build feedback until end of build)
+ * */
 function extraStageLogs(stageName: StageName): string[] {
   switch (stageName) {
     case 'build':
@@ -141,18 +155,23 @@ function getNewStageLogs(logs: StageLogsResult, lastLogId?: number): StageLog[] 
   return logs.data.filter((log) => log.id > lastLogId)
 }
 
+// Expected pages deploy behavior is that every stage will end with a status of `success` or `failure`.
+// Since this is not explicitly documented, and to account for
 async function checkIfPastStage(sdk: PagesSdk, id: string, stageName: StageName): Promise<boolean> {
   const { latest_stage } = await sdk.getDeploymentInfo(id)
   return !!latest_stage && latest_stage.name !== stageName
 }
 
+// The stages that last longer don't give feedback in between start/end, so there's no real need to
+// check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
+// (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
 function getPollInterval(stage: Stage): number {
   switch (stage.name) {
     case 'queued':
     case 'initialize':
     case 'build':
       return (
-        pollIntervalFromEnv(stage.name) ??
+        parseEnvPollInterval(stage.name) ??
         /* istanbul ignore next */
         10000
       )
@@ -160,14 +179,15 @@ function getPollInterval(stage: Stage): number {
     case 'deploy':
     default:
       return (
-        pollIntervalFromEnv(stage.name) ??
+        parseEnvPollInterval(stage.name) ??
         /* istanbul ignore next */
-        5000
+        3000
       )
   }
 }
 
-function pollIntervalFromEnv(name: StageName): number | undefined {
+/** Parses stage specific poll times from env (e.g. `$BUILD_POLL_INTERVAL`), mostly for testing */
+function parseEnvPollInterval(name: StageName): number | undefined {
   const envName = stagePollIntervalEnvName(name)
   const value = process.env[envName]
 
