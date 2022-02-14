@@ -4,8 +4,8 @@ import createPagesSdk, { PagesSdk } from './cloudflare'
 import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
 import { deploy } from './deploy'
 import { DeployHookDeleteError, DeploymentError } from './errors'
-import { createGithubCloudfrontDeploymentHandlers } from './github'
-import { Deployment, DeploymentHandlers, Project, Stage } from './types'
+import { createGithubCloudfrontDeploymentCallbacks } from './github'
+import { Deployment, DeploymentCallbacks, Project, Stage } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
@@ -15,7 +15,7 @@ export async function run(): Promise<void> {
     getInputs()
 
   const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
-  const githubHandlers = getDeploymentHandlers(accountId, githubToken)
+  const githubCallbacks = getDeploymentCallbacks(accountId, githubToken)
 
   const branchError = await validateBranch(sdk, production, preview, branch)
   if (branchError) return await fail(branchError)
@@ -23,18 +23,18 @@ export async function run(): Promise<void> {
   const deployBranch = getBranch(production, preview, branch)
 
   try {
-    deployment = await deploy(sdk, deployBranch, githubHandlers)
+    deployment = await deploy(sdk, deployBranch, githubCallbacks)
     setOutputFromDeployment(deployment)
   } catch (error) {
     logExtraErrorMessages(accountId, projectName, error, deployment)
-    return await fail(error, githubHandlers?.onFailure)
+    return await fail(error, githubCallbacks?.onFailure)
   }
 
   if (!isStageSuccess(deployment.latest_stage)) {
-    return fail(failedDeployMessage(deployment.latest_stage), githubHandlers?.onFailure)
+    return fail(failedDeployMessage(deployment.latest_stage), githubCallbacks?.onFailure)
   }
 
-  await githubHandlers?.onSuccess()
+  await githubCallbacks?.onSuccess()
   logSuccess(deployment)
 }
 
@@ -118,17 +118,17 @@ function getBranch(production: boolean, preview: boolean, branch?: string): stri
   return currentBranch()
 }
 
-function getDeploymentHandlers(
+function getDeploymentCallbacks(
   accountId: string,
   githubToken: string | undefined,
-): DeploymentHandlers | undefined {
+): DeploymentCallbacks | undefined {
   if (!githubToken) {
     console.log('No GitHub token provided, skipping GitHub deployments.')
     return
   }
 
   console.log('GitHub token provided. GitHub deployment will be created.')
-  return createGithubCloudfrontDeploymentHandlers(accountId, githubToken)
+  return createGithubCloudfrontDeploymentCallbacks(accountId, githubToken)
 }
 
 function setOutputFromDeployment(deployment: Deployment): void {

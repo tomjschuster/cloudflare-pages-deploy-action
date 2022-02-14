@@ -1,5 +1,5 @@
 import { getOctokit } from '@actions/github'
-import { createGithubCloudfrontDeploymentHandlers } from '../src/github'
+import { createGithubCloudfrontDeploymentCallbacks } from '../src/github'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
 import { previewDeployment } from '../__fixtures__/previewDeployment'
 
@@ -7,15 +7,15 @@ jest.mock('@actions/github', () => ({
   getOctokit: jest.fn(() => ({})),
 }))
 
-describe('createGithubCloudfrontDeploymentHandlers', () => {
+describe('createGithubCloudfrontDeploymentCallbacks', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
     jest.spyOn(console, 'log').mockImplementation(() => undefined)
   })
 
-  it('returns handlers', () => {
-    expect(createGithubCloudfrontDeploymentHandlers('foo', 'bar')).toEqual(
+  it('returns callbacks', () => {
+    expect(createGithubCloudfrontDeploymentCallbacks('foo', 'bar')).toEqual(
       expect.objectContaining({
         onStart: expect.any(Function),
         onStageChange: expect.any(Function),
@@ -35,9 +35,9 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await handlers.onStart(completedDeployment)
+    await callbacks.onStart(completedDeployment)
 
     expect(createDeployment).toHaveBeenCalledTimes(1)
     expect(createDeployment).toHaveBeenLastCalledWith(
@@ -55,9 +55,9 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await handlers.onStart(previewDeployment)
+    await callbacks.onStart(previewDeployment)
 
     expect(createDeployment).toHaveBeenCalledTimes(1)
     expect(createDeployment).toHaveBeenLastCalledWith(
@@ -78,12 +78,12 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await handlers.onStart(completedDeployment)
-    await handlers.onStageChange('queued')
-    await handlers.onStageChange('initialize')
-    await handlers.onStageChange('build')
+    await callbacks.onStart(completedDeployment)
+    await callbacks.onStageChange('queued')
+    await callbacks.onStageChange('initialize')
+    await callbacks.onStageChange('build')
 
     expect(createDeploymentStatus).toHaveBeenCalledTimes(2)
   })
@@ -101,10 +101,10 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await handlers.onStart(completedDeployment)
-    await handlers.onSuccess()
+    await callbacks.onStart(completedDeployment)
+    await callbacks.onSuccess()
 
     expect(createDeploymentStatus).toHaveBeenCalledTimes(1)
   })
@@ -122,10 +122,10 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await handlers.onStart(completedDeployment)
-    await handlers.onFailure()
+    await callbacks.onStart(completedDeployment)
+    await callbacks.onFailure()
 
     expect(createDeploymentStatus).toHaveBeenCalledTimes(1)
   })
@@ -143,14 +143,14 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await expect(handlers.onStart(completedDeployment)).rejects.toThrowError(
+    await expect(callbacks.onStart(completedDeployment)).rejects.toThrowError(
       `[GitHub API Error] Status: 422, Message: there was a problem`,
     )
   })
 
-  it('gracefully handles calling handlers before onStart', async () => {
+  it('gracefully handles calling callbacks before onStart', async () => {
     const createDeployment = jest.fn(() => Promise.resolve({ status: 201, data: { id: 1 } }))
     const createDeploymentStatus = jest.fn(() => Promise.resolve({ status: 201, data: { id: 1 } }))
 
@@ -163,12 +163,12 @@ describe('createGithubCloudfrontDeploymentHandlers', () => {
       },
     })
 
-    const handlers = createGithubCloudfrontDeploymentHandlers('foo', 'bar')
+    const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await handlers.onStageChange('queued')
-    await handlers.onFailure()
-    await handlers.onSuccess()
-    await handlers.onStart(completedDeployment)
+    await callbacks.onStageChange('queued')
+    await callbacks.onFailure()
+    await callbacks.onSuccess()
+    await callbacks.onStart(completedDeployment)
 
     expect(createDeployment).toHaveBeenCalledTimes(1)
     expect(createDeploymentStatus).toHaveBeenCalledTimes(0)

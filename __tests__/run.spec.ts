@@ -4,7 +4,7 @@ import createPagesSdk from '../src/cloudflare'
 import { deploy } from '../src/deploy'
 import { DeployHookDeleteError, DeploymentError } from '../src/errors'
 import { run } from '../src/run'
-import { DeploymentHandlers } from '../src/types'
+import { DeploymentCallbacks } from '../src/types'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
 import { failedLiveDeployment } from '../__fixtures__/failedDeployment'
 import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeployment'
@@ -19,7 +19,7 @@ jest.mock('@actions/core', () => ({
 jest.mock('../src/deploy', () => ({ deploy: jest.fn() }))
 jest.mock('../src/cloudflare', () => ({ __esModule: true, default: jest.fn(() => ({})) }))
 
-const mockGithubHandlers: DeploymentHandlers = {
+const mockGithubCallbacks: DeploymentCallbacks = {
   onStart: jest.fn(),
   onStageChange: jest.fn(),
   onSuccess: jest.fn(),
@@ -27,7 +27,7 @@ const mockGithubHandlers: DeploymentHandlers = {
 }
 
 jest.mock('../src/github', () => ({
-  createGithubCloudfrontDeploymentHandlers: jest.fn(() => mockGithubHandlers),
+  createGithubCloudfrontDeploymentCallbacks: jest.fn(() => mockGithubCallbacks),
 }))
 
 describe('run', () => {
@@ -251,7 +251,7 @@ describe('run', () => {
     expect(setFailed).toHaveBeenCalled()
   })
 
-  it('creates GitHub deploy handlers when token provided', async () => {
+  it('creates GitHub deploy callbacks when token provided', async () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
     // branch
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
@@ -272,7 +272,7 @@ describe('run', () => {
 
     await run()
 
-    expect(mockGithubHandlers.onSuccess).toHaveBeenCalledWith()
+    expect(mockGithubCallbacks.onSuccess).toHaveBeenCalledWith()
   })
 
   it('marks a GitHub deploy as failed after a failed build', async () => {
@@ -284,7 +284,7 @@ describe('run', () => {
 
     await run()
 
-    expect(mockGithubHandlers.onFailure).toHaveBeenCalledWith()
+    expect(mockGithubCallbacks.onFailure).toHaveBeenCalledWith()
   })
 
   it('marks a GitHub deploy as failed after an error', async () => {
@@ -296,6 +296,6 @@ describe('run', () => {
 
     await run()
 
-    expect(mockGithubHandlers.onFailure).toHaveBeenCalledWith()
+    expect(mockGithubCallbacks.onFailure).toHaveBeenCalledWith()
   })
 })

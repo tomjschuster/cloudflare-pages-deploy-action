@@ -2,7 +2,7 @@ import * as actionsCore from '@actions/core'
 import { PagesSdk } from '../src/cloudflare'
 import { deploy, stagePollIntervalEnvName } from '../src/deploy'
 import { DeploymentError } from '../src/errors'
-import { DeploymentHandlers } from '../src/types'
+import { DeploymentCallbacks } from '../src/types'
 import {
   buildLogs,
   cloneRepoLogs,
@@ -274,7 +274,7 @@ describe('deploy', () => {
   })
 
   it('calls onStart and onChange', async () => {
-    const mockGithubHandlers: DeploymentHandlers = {
+    const mockGitHubCallbacks: DeploymentCallbacks = {
       onStart: jest.fn(),
       onStageChange: jest.fn(),
       onSuccess: jest.fn(),
@@ -287,9 +287,9 @@ describe('deploy', () => {
     )
     sdk.getDeploymentInfo.mockResolvedValueOnce(completedDeployment)
 
-    await expect(deploy(sdk, accountId, mockGithubHandlers)).resolves.toEqual(completedDeployment)
+    await expect(deploy(sdk, accountId, mockGitHubCallbacks)).resolves.toEqual(completedDeployment)
 
-    expect(mockGithubHandlers.onStart).toHaveBeenCalledWith(completedDeployment)
-    expect(mockGithubHandlers.onStageChange).toHaveBeenCalledWith('initialize')
+    expect(mockGitHubCallbacks.onStart).toHaveBeenCalledWith(completedDeployment)
+    expect(mockGitHubCallbacks.onStageChange).toHaveBeenCalledWith('initialize')
   })
 })

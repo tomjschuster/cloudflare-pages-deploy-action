@@ -120,7 +120,7 @@ export type DeployHookResult = {
   id: string
 }
 
-export type DeploymentHandlers = {
+export type DeploymentCallbacks = {
   onStart: (deployment: Deployment) => Promise<void>
   onStageChange: (stageName: StageName) => Promise<void>
   onSuccess: () => Promise<void>

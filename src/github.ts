@@ -2,14 +2,14 @@ import { getOctokit } from '@actions/github'
 import { GitHub } from '@actions/github/lib/utils'
 import { dashboardDeploymentUrl } from './dashboard'
 import { GithubApiError } from './errors'
-import { Deployment, DeploymentHandlers, StageName } from './types'
+import { Deployment, DeploymentCallbacks, StageName } from './types'
 
 export type Octokit = InstanceType<typeof GitHub>
 
-export function createGithubCloudfrontDeploymentHandlers(
+export function createGithubCloudfrontDeploymentCallbacks(
   accountId: string,
   token: string,
-): DeploymentHandlers {
+): DeploymentCallbacks {
   const octokit = getOctokit(token)
   let id: number | undefined
   let deployment: Deployment | undefined

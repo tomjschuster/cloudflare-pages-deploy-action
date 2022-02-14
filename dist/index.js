@@ -174,13 +174,13 @@ const utils_1 = __nccwpck_require__(918);
  * Creates a CloudFlare Pages for the provided branch (or production branch if no branch provided),
  * logging output for each stage and returning the deployment on complete.
  * */
-function deploy(sdk, branch, handlers) {
+function deploy(sdk, branch, callbacks) {
     return __awaiter(this, void 0, void 0, function* () {
         const deployment = yield sdk.createDeployment(branch);
-        if (handlers === null || handlers === void 0 ? void 0 : handlers.onStart)
-            yield handlers.onStart(deployment);
+        if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
+            yield callbacks.onStart(deployment);
         try {
-            yield logDeploymentStages(sdk, deployment, handlers === null || handlers === void 0 ? void 0 : handlers.onStageChange);
+            yield logDeploymentStages(sdk, deployment, callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStageChange);
             return yield sdk.getDeploymentInfo(deployment.id);
         }
         catch (e) {
@@ -422,11 +422,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createGithubCloudfrontDeploymentHandlers = void 0;
+exports.createGithubCloudfrontDeploymentCallbacks = void 0;
 const github_1 = __nccwpck_require__(5438);
 const dashboard_1 = __nccwpck_require__(5819);
 const errors_1 = __nccwpck_require__(9292);
-function createGithubCloudfrontDeploymentHandlers(accountId, token) {
+function createGithubCloudfrontDeploymentCallbacks(accountId, token) {
     const octokit = (0, github_1.getOctokit)(token);
     let id;
     let deployment;
@@ -465,7 +465,7 @@ function createGithubCloudfrontDeploymentHandlers(accountId, token) {
         onFailure: setFailure,
     };
 }
-exports.createGithubCloudfrontDeploymentHandlers = createGithubCloudfrontDeploymentHandlers;
+exports.createGithubCloudfrontDeploymentCallbacks = createGithubCloudfrontDeploymentCallbacks;
 function createGitHubDeployment(octokit, accountId, cfDeployment) {
     return octokit.rest.repos
         .createDeployment(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { required_contexts: [], transient_environment: cfDeployment.environment !== 'production' }))
@@ -543,23 +543,23 @@ function run() {
         let deployment;
         const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } = getInputs();
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
-        const githubHandlers = getDeploymentHandlers(accountId, githubToken);
+        const githubCallbacks = getDeploymentCallbacks(accountId, githubToken);
         const branchError = yield validateBranch(sdk, production, preview, branch);
         if (branchError)
             return yield fail(branchError);
         const deployBranch = getBranch(production, preview, branch);
         try {
-            deployment = yield (0, deploy_1.deploy)(sdk, deployBranch, githubHandlers);
+            deployment = yield (0, deploy_1.deploy)(sdk, deployBranch, githubCallbacks);
             setOutputFromDeployment(deployment);
         }
         catch (error) {
             logExtraErrorMessages(accountId, projectName, error, deployment);
-            return yield fail(error, githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure);
+            return yield fail(error, githubCallbacks === null || githubCallbacks === void 0 ? void 0 : githubCallbacks.onFailure);
         }
         if (!(0, utils_1.isStageSuccess)(deployment.latest_stage)) {
-            return fail(failedDeployMessage(deployment.latest_stage), githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure);
+            return fail(failedDeployMessage(deployment.latest_stage), githubCallbacks === null || githubCallbacks === void 0 ? void 0 : githubCallbacks.onFailure);
         }
-        yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onSuccess());
+        yield (githubCallbacks === null || githubCallbacks === void 0 ? void 0 : githubCallbacks.onSuccess());
         logSuccess(deployment);
     });
 }
@@ -621,13 +621,13 @@ function getBranch(production, preview, branch) {
         return branch;
     return currentBranch();
 }
-function getDeploymentHandlers(accountId, githubToken) {
+function getDeploymentCallbacks(accountId, githubToken) {
     if (!githubToken) {
         console.log('No GitHub token provided, skipping GitHub deployments.');
         return;
     }
     console.log('GitHub token provided. GitHub deployment will be created.');
-    return (0, github_2.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
+    return (0, github_2.createGithubCloudfrontDeploymentCallbacks)(accountId, githubToken);
 }
 function setOutputFromDeployment(deployment) {
     (0, core_1.setOutput)('deployment-id', deployment.id);

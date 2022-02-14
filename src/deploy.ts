@@ -3,7 +3,7 @@ import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
 import {
   Deployment,
-  DeploymentHandlers,
+  DeploymentCallbacks,
   Stage,
   StageLog,
   StageLogsResult,
@@ -18,13 +18,13 @@ import { isQueuedStage, isStageComplete, isStageFailure, isStageSuccess, wait } 
 export async function deploy(
   sdk: PagesSdk,
   branch: string | undefined,
-  handlers?: DeploymentHandlers,
+  callbacks?: DeploymentCallbacks,
 ): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
-  if (handlers?.onStart) await handlers.onStart(deployment)
+  if (callbacks?.onStart) await callbacks.onStart(deployment)
 
   try {
-    await logDeploymentStages(sdk, deployment, handlers?.onStageChange)
+    await logDeploymentStages(sdk, deployment, callbacks?.onStageChange)
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
     throw new DeploymentError(e, deployment)
