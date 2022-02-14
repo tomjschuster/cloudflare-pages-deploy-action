@@ -46,5 +46,6 @@ jobs:
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
-          branch: ${{ github.head_ref }}
+          preview: true
+          # branch: ${{ github.head_ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
