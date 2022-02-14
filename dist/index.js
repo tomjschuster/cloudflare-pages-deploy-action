@@ -292,7 +292,7 @@ function getNewStageLogs(logs, lastLogId) {
 function checkIfPastStage(sdk, id, stageName) {
     return __awaiter(this, void 0, void 0, function* () {
         const { latest_stage } = yield sdk.getDeploymentInfo(id);
-        return !!latest_stage && latest_stage.name !== stageName;
+        return latest_stage.name !== stageName;
     });
 }
 // The stages that last longer don't give feedback in between start/end, so there's no real need to
@@ -540,27 +540,20 @@ function run() {
         let deployment;
         const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs();
         const branchError = validateBranch(production, branch);
-        if (branchError) {
-            (0, core_1.setFailed)(branchError);
-            return;
-        }
+        if (branchError)
+            return yield fail(branchError);
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
-        const githubHandlers = getDeploymentHanlders(accountId, githubToken);
+        const githubHandlers = getDeploymentHandlers(accountId, githubToken);
         try {
             deployment = yield (0, deploy_1.deploy)(sdk, branch, githubHandlers);
             setOutputFromDeployment(deployment);
         }
         catch (error) {
-            handleError(accountId, projectName, error, deployment);
-            yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure());
-            (0, core_1.setFailed)(error instanceof Error ? error.message : `${error}`);
-            return;
+            logExtraErrorMessages(accountId, projectName, error, deployment);
+            return yield fail(error, githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure);
         }
-        const failureMessage = checkDeploymentFailure(deployment);
-        if (failureMessage) {
-            yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure());
-            (0, core_1.setFailed)(failureMessage);
-            return;
+        if (!(0, utils_1.isStageSuccess)(deployment.latest_stage)) {
+            return fail(failedDeployMessage(deployment.latest_stage), githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure);
         }
         yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onSuccess());
         logSuccess(deployment);
@@ -589,33 +582,6 @@ function validateBranch(production, branch) {
     if (branch)
         return validateBranchName(branch);
 }
-function setOutputFromDeployment(deployment) {
-    (0, core_1.setOutput)('deployment-id', deployment.id);
-    (0, core_1.setOutput)('url', deployment.url);
-}
-function checkDeploymentFailure({ latest_stage }) {
-    if (latest_stage && !(0, utils_1.isStageSuccess)(latest_stage)) {
-        return failedDeployMessage(latest_stage.name);
-    }
-}
-function handleError(accountId, projectName, error, deployment) {
-    deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
-    console.log(unexpectedErrorMessage(accountId, projectName, deployment));
-    if (error instanceof errors_1.DeployHookDeleteError) {
-        console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName));
-    }
-}
-function failedDeployMessage(stageName) {
-    return `Deployment failed on stage: ${stageName}. See log output above for more information.`;
-}
-function unexpectedErrorMessage(accountId, projectName, deployment) {
-    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment === null || deployment === void 0 ? void 0 : deployment.id);
-    return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
-}
-function hookDeleteErrorMessage(accountId, projectName, name) {
-    const url = (0, dashboard_1.dashboardBuildDeploymentsSettingsUrl)(accountId, projectName);
-    return `Failed to delete temporary deploy hook "${name}".Go to ${url} to manually delete the deploy hook`;
-}
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
 function validateBranchName(branch) {
     if (invalidBranchNameRegex.test(branch)) {
@@ -625,18 +591,53 @@ function validateBranchName(branch) {
         return `Branch name must be 255 characters or less (received ${branch})`;
     }
 }
-function logSuccess({ project_name, url, latest_stage }) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
-    console.log(`URL: ${url}`);
-}
-function getDeploymentHanlders(accountId, githubToken) {
+function getDeploymentHandlers(accountId, githubToken) {
     if (!githubToken) {
         console.log('No GitHub token provided, skipping GitHub deployments.');
         return;
     }
     console.log('GitHub token provided. GitHub deployment will be created.');
     return (0, github_1.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
+}
+function setOutputFromDeployment(deployment) {
+    (0, core_1.setOutput)('deployment-id', deployment.id);
+    (0, core_1.setOutput)('url', deployment.url);
+}
+function logSuccess({ project_name, url, latest_stage }) {
+    console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
+    console.log(`URL: ${url}`);
+}
+// `setFailed` doesn't print stack trace. This allow to exit gracefully with debug info.
+function fail(e, beforeExit) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const error = e instanceof Error ? e : new Error(`${e}`);
+        (0, core_1.setFailed)(error);
+        console.error(`${error.message}\n${error.stack}`);
+        if (beforeExit)
+            yield beforeExit();
+    });
+}
+function logExtraErrorMessages(accountId, projectName, error, deployment) {
+    deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
+    console.log(unexpectedErrorMessage(accountId, projectName, deployment));
+    if (error instanceof errors_1.DeployHookDeleteError) {
+        console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName));
+    }
+    console.log(reportIssueMessage());
+}
+function failedDeployMessage(stage) {
+    return `Deployment failed on stage: ${stage.name} with a status of '${stage.status}'. See log output above for more information.`;
+}
+function unexpectedErrorMessage(accountId, projectName, deployment) {
+    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment === null || deployment === void 0 ? void 0 : deployment.id);
+    return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
+}
+function hookDeleteErrorMessage(accountId, projectName, name) {
+    const url = (0, dashboard_1.dashboardBuildDeploymentsSettingsUrl)(accountId, projectName);
+    return `Failed to delete temporary deploy hook "${name}". Go to ${url} to manually delete the deploy hook`;
+}
+function reportIssueMessage() {
+    return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`;
 }
 
 

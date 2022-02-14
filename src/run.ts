@@ -4,7 +4,7 @@ import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './
 import { deploy } from './deploy'
 import { DeployHookDeleteError, DeploymentError } from './errors'
 import { createGithubCloudfrontDeploymentHandlers } from './github'
-import { Deployment, DeploymentHandlers, StageName } from './types'
+import { Deployment, DeploymentHandlers, Stage } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
@@ -13,30 +13,21 @@ export async function run(): Promise<void> {
   const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs()
 
   const branchError = validateBranch(production, branch)
-
-  if (branchError) {
-    setFailed(branchError)
-    return
-  }
+  if (branchError) return await fail(branchError)
 
   const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
-  const githubHandlers = getDeploymentHanlders(accountId, githubToken)
+  const githubHandlers = getDeploymentHandlers(accountId, githubToken)
 
   try {
     deployment = await deploy(sdk, branch, githubHandlers)
     setOutputFromDeployment(deployment)
   } catch (error) {
-    handleError(accountId, projectName, error, deployment)
-    await githubHandlers?.onFailure()
-    setFailed(error instanceof Error ? error.message : `${error}`)
-    return
+    logExtraErrorMessages(accountId, projectName, error, deployment)
+    return await fail(error, githubHandlers?.onFailure)
   }
 
-  const failureMessage = checkDeploymentFailure(deployment)
-  if (failureMessage) {
-    await githubHandlers?.onFailure()
-    setFailed(failureMessage)
-    return
+  if (!isStageSuccess(deployment.latest_stage)) {
+    return fail(failedDeployMessage(deployment.latest_stage), githubHandlers?.onFailure)
   }
 
   await githubHandlers?.onSuccess()
@@ -79,18 +70,49 @@ function validateBranch(production: boolean, branch?: string): string | undefine
   if (branch) return validateBranchName(branch)
 }
 
+const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/
+function validateBranchName(branch: string): string | undefined {
+  if (invalidBranchNameRegex.test(branch)) {
+    return `Invalid branch name: ${branch}`
+  }
+
+  if (branch.length > 255) {
+    return `Branch name must be 255 characters or less (received ${branch})`
+  }
+}
+
+function getDeploymentHandlers(
+  accountId: string,
+  githubToken: string | undefined,
+): DeploymentHandlers | undefined {
+  if (!githubToken) {
+    console.log('No GitHub token provided, skipping GitHub deployments.')
+    return
+  }
+
+  console.log('GitHub token provided. GitHub deployment will be created.')
+  return createGithubCloudfrontDeploymentHandlers(accountId, githubToken)
+}
+
 function setOutputFromDeployment(deployment: Deployment): void {
   setOutput('deployment-id', deployment.id)
   setOutput('url', deployment.url)
 }
 
-function checkDeploymentFailure({ latest_stage }: Deployment): string | undefined {
-  if (latest_stage && !isStageSuccess(latest_stage)) {
-    return failedDeployMessage(latest_stage.name)
-  }
+function logSuccess({ project_name, url, latest_stage }: Deployment): void {
+  console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`)
+  console.log(`URL: ${url}`)
 }
 
-function handleError(
+// `setFailed` doesn't print stack trace. This allow to exit gracefully with debug info.
+async function fail(e: unknown, beforeExit?: () => Promise<void>): Promise<void> {
+  const error: Error = e instanceof Error ? e : new Error(`${e}`)
+  setFailed(error)
+  console.error(`${error.message}\n${error.stack}`)
+  if (beforeExit) await beforeExit()
+}
+
+function logExtraErrorMessages(
   accountId: string,
   projectName: string,
   error: unknown,
@@ -103,10 +125,12 @@ function handleError(
   if (error instanceof DeployHookDeleteError) {
     console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName))
   }
+
+  console.log(reportIssueMessage())
 }
 
-function failedDeployMessage(stageName: StageName): string {
-  return `Deployment failed on stage: ${stageName}. See log output above for more information.`
+function failedDeployMessage(stage: Stage): string {
+  return `Deployment failed on stage: ${stage.name} with a status of '${stage.status}'. See log output above for more information.`
 }
 
 function unexpectedErrorMessage(accountId: string, projectName: string, deployment?: Deployment) {
@@ -117,35 +141,9 @@ function unexpectedErrorMessage(accountId: string, projectName: string, deployme
 function hookDeleteErrorMessage(accountId: string, projectName: string, name: string): string {
   const url = dashboardBuildDeploymentsSettingsUrl(accountId, projectName)
 
-  return `Failed to delete temporary deploy hook "${name}".Go to ${url} to manually delete the deploy hook`
+  return `Failed to delete temporary deploy hook "${name}". Go to ${url} to manually delete the deploy hook`
 }
 
-const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/
-function validateBranchName(branch: string): string | undefined {
-  if (invalidBranchNameRegex.test(branch)) {
-    return `Invalid branch name: ${branch}`
-  }
-
-  if (branch.length > 255) {
-    return `Branch name must be 255 characters or less (received ${branch})`
-  }
-}
-
-function logSuccess({ project_name, url, latest_stage }: Deployment): void {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  console.log(`Successfully deployed ${project_name} at ${latest_stage!.ended_on}.`)
-  console.log(`URL: ${url}`)
-}
-
-function getDeploymentHanlders(
-  accountId: string,
-  githubToken: string | undefined,
-): DeploymentHandlers | undefined {
-  if (!githubToken) {
-    console.log('No GitHub token provided, skipping GitHub deployments.')
-    return
-  }
-
-  console.log('GitHub token provided. GitHub deployment will be created.')
-  return createGithubCloudfrontDeploymentHandlers(accountId, githubToken)
+function reportIssueMessage(): string {
+  return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`
 }

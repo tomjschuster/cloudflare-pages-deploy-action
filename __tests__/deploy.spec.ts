@@ -68,7 +68,6 @@ import {
   initialLiveDeploymentUnexpectedStatus,
   skippedTestLogsUnexpectedStatus,
 } from '../__fixtures__/liveDeploymentUnexpectedStatus'
-import { noStageDeployment } from '../__fixtures__/noStageDeployment'
 import { oneStageDeployLogs, oneStageDeployment } from '../__fixtures__/oneStageDeployment'
 
 const getProject: jest.Mock<ReturnType<PagesSdk['getProject']>> = jest.fn()
@@ -181,16 +180,6 @@ describe('deploy', () => {
     expect(endGroupSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('logs nothing and returns deployment when no stages', async () => {
-    sdk.createDeployment.mockResolvedValueOnce(noStageDeployment)
-    sdk.getDeploymentInfo.mockResolvedValueOnce(noStageDeployment)
-
-    await expect(deploy(sdk, accountId)).resolves.toEqual(noStageDeployment)
-    expect(consoleSpy).not.toHaveBeenCalled()
-    expect(startGroupSpy).not.toHaveBeenCalled()
-    expect(endGroupSpy).not.toHaveBeenCalled()
-  })
-
   it('logs until failure, then returns deploy', async () => {
     sdk.createDeployment.mockResolvedValueOnce(initialFailedDeployment)
     ;[
@@ -262,7 +251,7 @@ describe('deploy', () => {
       completeDeployLogsUnexpectedStatus,
     ].forEach(sdk.getStageLogs.mockResolvedValueOnce)
 
-    // Called when test stage polls 5 times
+    // Called when test stage polls
     sdk.getDeploymentInfo.mockResolvedValueOnce(activeLiveDeploymentUnexpectedStatus)
     sdk.getDeploymentInfo.mockResolvedValueOnce(completeLiveDeploymentUnexpectedStatus)
 

@@ -36,7 +36,7 @@ export type Deployment = {
   url: string
   created_on: string
   modified_on: string
-  latest_stage: Stage | null
+  latest_stage: Stage
   deployment_trigger: DeploymentTrigger
   stages: Stage[]
   build_config: BuildConfig
@@ -123,6 +123,6 @@ export type DeployHookResult = {
 export type DeploymentHandlers = {
   onStart: (deployment: Deployment) => Promise<void>
   onStageChange: (stageName: StageName) => Promise<void>
-  onSuccess: () => void
-  onFailure: () => void
+  onSuccess: () => Promise<void>
+  onFailure: () => Promise<void>
 }

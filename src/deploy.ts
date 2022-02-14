@@ -159,7 +159,7 @@ function getNewStageLogs(logs: StageLogsResult, lastLogId?: number): StageLog[] 
 // Since this is not explicitly documented, and to account for
 async function checkIfPastStage(sdk: PagesSdk, id: string, stageName: StageName): Promise<boolean> {
   const { latest_stage } = await sdk.getDeploymentInfo(id)
-  return !!latest_stage && latest_stage.name !== stageName
+  return latest_stage.name !== stageName
 }
 
 // The stages that last longer don't give feedback in between start/end, so there's no real need to
