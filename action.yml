@@ -1,5 +1,5 @@
 name: 'Deploy a Cloudflare Pages Project'
-description: 'Trigger a Cloudflare Pages deployment and track its progress across all stages.'
+description: 'Deploy your Cloudflare Pages project, fully integrated into your CI pipeline.
 author: 'Tom Schuster'
 branding:
   icon: 'upload-cloud'

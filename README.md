@@ -5,7 +5,14 @@
 
 # Cloudflare Pages Deploy Action
 
-Triggers a production and preview [Cloudflare Pages](https://pages.cloudflare.com/) deployments using the [Cloudflare v4 API](https://api.cloudflare.com/) and tracks the progress of the deployment across all stages, allowing you to fully integrate Cloudflare Pages deployments into your existing CI pipelines. Optional GitHub Deployments can also be associated with your preview branches and production environment.
+Deploys your [Cloudflare Pages](https://pages.cloudflare.com/) project, enabling you to integrate Pages into your existing CI pipeline through the features:
+
+- Deploy your production branch or any other branch
+- Deploy preview environments for every pull request
+- Defer deployment until other stages/steps have passed (e.g. tests)
+- Perform actions after successful deployment (e.g. purge cache)
+- Track deployment status from within GitHub Actions
+- Create GitHub deployments for your Pages deployments
 
 ![Cloudflare Page deploying from GitHub Actions](./assets/action-example.png)
 
@@ -16,19 +23,19 @@ Triggers a production and preview [Cloudflare Pages](https://pages.cloudflare.co
   - Because the Create/Delete Deploy Hook endpoints are not officially supported, this functionality could break at any moment. Production deployments are built on the official API, but preview deployments are not, and it is possible that this preview deployments could stop working completely.
 - This action does not upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
 
-If non-production deployments are ever supported by `Create deployment` in the future, this action can be updated to stop relying on creating/deleting deploy hooks. If you are not comfortable with this action creating/deleting deploy hooks on every preview deployment using unsupported endpoints, please look at some official alternatives below.
+If non-production deployments are ever supported by `Create deployment` in the future, this action can be updated to stop relying on creating/deleting deploy hooks to remove these limitations. If you are not comfortable with this action creating/deleting deploy hooks on every preview deployment using unsupported endpoints, please look at some official alternatives below.
 
-### Alternatives
+## Other Pages deployment options
 
-Cloudflare's official [Pages integrated GitHub application](https://github.com/apps/cloudflare-pages) supports [preview deployments](https://developers.cloudflare.com/pages/platform/preview-deployments) for pull requests in addition to production deploys. Following the [Getting Started guide](https://developers.cloudflare.com/pages/get-started) for GitHub will enable this by default. The status of these deploys will be associated with the proper GitHub branch, however, the deployments will always be triggered immediately on any push to your production branch or pull request and cannot be integrated into any existing CI flows (e.g. there's no way to defer a production deploy until other actions have passed).
+Cloudflare's official [Pages integrated GitHub application](https://github.com/apps/cloudflare-pages) supports [preview deployments](https://developers.cloudflare.com/pages/platform/preview-deployments) for pull requests in addition to production deploys. Following the [Getting Started guide](https://developers.cloudflare.com/pages/get-started) for GitHub will enable this by default. The status of these deploys will be associated with the proper GitHub branch. However, deployments will always be triggered immediately on any push to your production branch, so there is no way to defer deployment until other steps (such as tests) have passed.
 
-Cloudflare pages can also be deployed using [Deploy Hooks](https://developers.cloudflare.com/pages/platform/deploy-hooks). Hooks can be created for deploying to specific branches from your Pages project's Settings. Hooks can be integrated an existing CI flows for specific branches (e.g. production, staging), however they will not create any checks associated with your production branch or any pull request so there will be no feedback about the status of the build the on your production branch or pull requests. Similar to this action's limitations, hooks cannot be used for preview environments for all pull requests.
+Cloudflare pages can also be deployed using [Deploy Hooks](https://developers.cloudflare.com/pages/platform/deploy-hooks). Hooks can be created for deploying to specific branches from your Pages project's Settings. Using hooks, you can defer deploying branches until previous steps have passed. However this is only possible if you pause repository deployments, which also disables preview deployments. Additionally, the status of hook deployment won't be tracked by your pipeline.
 
-If you are looking to perform actions after a Pages deploy completes (such as purging caches), [Cloudflare Pages Await](https://github.com/marketplace/actions/cloudflare-pages-await) tracks deployments in a GitHub action and also creates a GitHub Deployment associated with your production environment or pull request. This action can be used with the official application and with deploy hooks.
+If you are looking to perform actions after a Pages deploy completes (such as purging caches), [Cloudflare Pages Await](https://github.com/marketplace/actions/cloudflare-pages-await) tracks deployments in a GitHub action and also creates a GitHub Deployment associated with your production environment or pull request. This action can be used to track deployments from the official application and deploy hooks.
 
 ## Inputs
 
-It is recommended that you use [Encrypted Secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets) for storing/accessing these values:
+Be sure to use a secure method such as [Encrypted Secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets) for storing/accessing Cloudflare API Key:
 
 | Name         |          | Description                                                                                                                                                                                                                                                                                                                            |
 | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
