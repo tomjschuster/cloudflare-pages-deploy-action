@@ -539,8 +539,10 @@ const errors_1 = __nccwpck_require__(9292);
 const github_2 = __nccwpck_require__(5928);
 const utils_1 = __nccwpck_require__(918);
 function run() {
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
         console.log(JSON.stringify(github_1.context, undefined, 2));
+        console.log('BRANCH', (_b = (_a = github_1.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head) === null || _b === void 0 ? void 0 : _b.ref);
         // eslint-disable-next-line no-constant-condition
         if (true)
             process.exit(1);
