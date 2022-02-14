@@ -21,7 +21,7 @@ export async function deploy(
   handlers?: DeploymentHandlers,
 ): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
-  await handlers?.onStart(deployment)
+  if (handlers?.onStart) await handlers.onStart(deployment)
 
   try {
     await logDeploymentStages(sdk, deployment, handlers?.onStageChange)
@@ -47,7 +47,7 @@ async function logDeploymentStages(
     if (shouldSkip(stage)) continue
 
     // Mark new stage through callback
-    onChange && (await onChange(name))
+    if (onChange) await onChange(name)
 
     // New GitHub Actions log group for stage
     startGroup(displayNewStage(name))

@@ -5,7 +5,7 @@
 
 # Cloudflare Pages Deploy Action
 
-Deploys your [Cloudflare Pages](https://pages.cloudflare.com/) project, enabling you to integrate Pages into your existing CI pipeline through the features:
+Deploys your [Cloudflare Pages](https://pages.cloudflare.com/) project, enabling you to integrate Pages into your existing CI pipeline using the following features:
 
 - Deploy your production branch or any other branch
 - Deploy preview environments for every pull request
