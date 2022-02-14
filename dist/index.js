@@ -177,7 +177,8 @@ const utils_1 = __nccwpck_require__(918);
 function deploy(sdk, branch, handlers) {
     return __awaiter(this, void 0, void 0, function* () {
         const deployment = yield sdk.createDeployment(branch);
-        yield (handlers === null || handlers === void 0 ? void 0 : handlers.onStart(deployment));
+        if (handlers === null || handlers === void 0 ? void 0 : handlers.onStart)
+            yield handlers.onStart(deployment);
         try {
             yield logDeploymentStages(sdk, deployment, handlers === null || handlers === void 0 ? void 0 : handlers.onStageChange);
             return yield sdk.getDeploymentInfo(deployment.id);
@@ -199,7 +200,8 @@ function logDeploymentStages(sdk, { id, stages }, onChange) {
             if (shouldSkip(stage))
                 continue;
             // Mark new stage through callback
-            onChange && (yield onChange(name));
+            if (onChange)
+                yield onChange(name);
             // New GitHub Actions log group for stage
             (0, core_1.startGroup)(displayNewStage(name));
             // For certain stages we add some extra initial logs (e.g. to announce build start sooner)
