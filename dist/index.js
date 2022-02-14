@@ -161,8 +161,6 @@ const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
 function deploy(sdk, branch, handlers) {
     return __awaiter(this, void 0, void 0, function* () {
-        // // @ts-expect-error foo
-        // await handlers?.onStart()
         const deployment = yield sdk.createDeployment(branch);
         yield (handlers === null || handlers === void 0 ? void 0 : handlers.onStart(deployment));
         try {
@@ -178,42 +176,35 @@ exports.deploy = deploy;
 function logDeploymentStages(sdk, { id, stages }, onChange) {
     return __awaiter(this, void 0, void 0, function* () {
         for (const { name } of stages) {
-            let stageLogs = yield sdk.getStageLogs(id, name);
-            let lastLogId;
-            if (shouldSkip(stageLogs))
+            const poll = makePoller(sdk, id, name);
+            // Get initial logs for stage
+            let { stage, newLogs, unexpectedlyPastStage } = yield poll();
+            // We don't log certain stages (such as queued) if they were already complete. Move onto next stage.
+            if (shouldSkip(stage))
                 continue;
+            // Mark new stage through callback
             onChange && (yield onChange(name));
+            // New GitHub Actions log group for stage
             (0, core_1.startGroup)(displayNewStage(name));
+            // For certain stages we add some extra initial logs (e.g. to announce build start sooner)
             for (const log of extraStageLogs(name))
                 console.log(log);
-            let pollAttempts = 1;
-            let skippedStage = false;
             // eslint-disable-next-line no-constant-condition
             while (true) {
-                for (const log of getNewStageLogs(stageLogs, lastLogId))
+                for (const log of newLogs)
                     console.log(log.message);
-                if ((0, utils_1.isStageComplete)(stageLogs))
-                    break;
-                yield (0, utils_1.wait)(getPollInterval(stageLogs));
-                // Loop logic assumes that every deploy stage will end with a status of failure or success.
-                // Since this is not explicitly stated in the API docs, we defensively peek at the next stage
-                // every 5 polls to see if the next stage has started to reduce the probability of an infinite
-                // loop until the the job times out.
-                const deploymentInfo = pollAttempts++ % 5 === 0 ? yield sdk.getDeploymentInfo(id) : undefined;
-                lastLogId = getLastLogId(stageLogs);
-                stageLogs = yield sdk.getStageLogs(id, name);
-                // Deployment is no longer on stage, but we don't recognize stage as complete; avoid infinite loop
-                if (!(0, utils_1.isStageComplete)(stageLogs) &&
-                    (deploymentInfo === null || deploymentInfo === void 0 ? void 0 : deploymentInfo.latest_stage) &&
-                    deploymentInfo.latest_stage.name !== name) {
-                    skippedStage = true;
+                if ((0, utils_1.isStageComplete)(stage) || unexpectedlyPastStage) {
+                    // Close stage's GitHub Actions log group
+                    (0, core_1.endGroup)();
+                    // If stage fails, other stages will never complete
+                    if ((0, utils_1.isStageFailure)(stage))
+                        return;
+                    // Move onto next stage
                     break;
                 }
+                yield (0, utils_1.wait)(getPollInterval(stage));
+                ({ stage, newLogs, unexpectedlyPastStage } = yield poll());
             }
-            (0, core_1.endGroup)();
-            // If stage fails, following stages will never complete
-            if (!(0, utils_1.isStageSuccess)(stageLogs) && !skippedStage)
-                return;
         }
     });
 }
@@ -244,24 +235,38 @@ function extraStageLogs(stageName) {
             return [];
     }
 }
-function stagePollIntervalEnvName(name) {
-    return `${name.toUpperCase()}_POLL_INTERVAL`;
+/** Higher Order Function for keeping track of last logged id's and intermitently polling latest deployment stage  */
+function makePoller(sdk, id, stageName, checkDeploymentEvery = 5) {
+    let pollCount = 0;
+    let lastLogId;
+    return function poll() {
+        return __awaiter(this, void 0, void 0, function* () {
+            pollCount++;
+            const stageLogs = yield sdk.getStageLogs(id, stageName);
+            // Avoids infinite loop if stage logs does not return expected statuses on completion
+            const unexpectedlyPastStage = !(0, utils_1.isStageComplete)(stageLogs) && pollCount % checkDeploymentEvery === 0
+                ? yield checkIfPastStage(sdk, id, stageName)
+                : false;
+            const newLogs = getNewStageLogs(stageLogs, lastLogId);
+            lastLogId = stageLogs.end;
+            return { stage: stageLogs, newLogs, unexpectedlyPastStage };
+        });
+    };
 }
-exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
-function pollIntervalFromEnv(name) {
-    const envName = stagePollIntervalEnvName(name);
-    const value = process.env[envName];
-    /* istanbul ignore next */
-    if (!value) {
-        return undefined;
-    }
-    const parsed = Number(value).valueOf();
-    /* istanbul ignore next */
-    if (isNaN(parsed)) {
-        console.warn(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`);
-        return undefined;
-    }
-    return parsed;
+// The logs endpoint doesn't seem to offer pagination so we have to fetch all logs every poll
+// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
+function getNewStageLogs(logs, lastLogId) {
+    if (lastLogId === undefined)
+        return logs.data;
+    if (logs.end === lastLogId)
+        return [];
+    return logs.data.filter((log) => log.id > lastLogId);
+}
+function checkIfPastStage(sdk, id, stageName) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { latest_stage } = yield sdk.getDeploymentInfo(id);
+        return !!latest_stage && latest_stage.name !== stageName;
+    });
 }
 function getPollInterval(stage) {
     var _a, _b;
@@ -280,18 +285,25 @@ function getPollInterval(stage) {
             5000);
     }
 }
-// The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
-// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
-function getNewStageLogs(logs, lastLogId) {
-    if (lastLogId === undefined)
-        return logs.data;
-    if (logs.end === lastLogId)
-        return [];
-    return logs.data.filter((log) => log.id > lastLogId);
+function pollIntervalFromEnv(name) {
+    const envName = stagePollIntervalEnvName(name);
+    const value = process.env[envName];
+    /* istanbul ignore next */
+    if (!value) {
+        return undefined;
+    }
+    const parsed = Number(value).valueOf();
+    /* istanbul ignore next */
+    if (isNaN(parsed)) {
+        console.warn(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`);
+        return undefined;
+    }
+    return parsed;
 }
-function getLastLogId(logs) {
-    return !logs || logs.data.length === 0 ? undefined : Math.max(...logs.data.map((log) => log.id));
+function stagePollIntervalEnvName(name) {
+    return `${name.toUpperCase()}_POLL_INTERVAL`;
 }
+exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
 
 
 /***/ }),
@@ -605,7 +617,7 @@ function getDeploymentHanlders(accountId, githubToken) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = exports.isStageComplete = exports.isStageSuccess = exports.isQueuedStage = void 0;
+exports.wait = exports.isStageComplete = exports.isStageFailure = exports.isStageSuccess = exports.isQueuedStage = void 0;
 function isQueuedStage(stage) {
     return stage.name === 'queued';
 }
@@ -614,6 +626,10 @@ function isStageSuccess(stage) {
     return stage.status === 'success';
 }
 exports.isStageSuccess = isStageSuccess;
+function isStageFailure(stage) {
+    return stage.status === 'failure';
+}
+exports.isStageFailure = isStageFailure;
 function isStageComplete(stage) {
     return stage.status === 'success' || stage.status === 'failure';
 }

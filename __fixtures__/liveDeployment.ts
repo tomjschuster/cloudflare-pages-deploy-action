@@ -156,7 +156,7 @@ export const activeQueuedLogs: StageLogsResult = {
   ended_on: null,
   status: 'active',
   start: 0,
-  end: 1,
+  end: 0,
   total: 1,
   data: [
     {

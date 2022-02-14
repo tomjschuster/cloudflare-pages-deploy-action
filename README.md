@@ -11,7 +11,7 @@ Triggers a production and preview [Cloudflare Pages](https://pages.cloudflare.co
 
 ## Important Limitations
 
-- The Cloudflare v4 API [`Create deployment`](https://api.cloudflare.com/#pages-deployment-create-deployment) endpoint only supports creating production deployments. This action achieves triggering preview deployments by creating, triggering and then deleting a [Deploy Hook](https://developers.cloudflare.com/pages/platform/deploy-hooks) **using undocumented endpoints**. This means:
+- The Cloudflare v4 API [`Create deployment`](https://api.cloudflare.com/#pages-deployment-create-deployment) endpoint only supports creating production deployments. This action achieves triggering preview deployments by creating, triggering and then deleting a [Deploy Hook](https://developers.cloudflare.com/pages/platform/deploy-hooks) using **undocumented endpoints**. This means:
   - If hook deletion fails, there will be an active webhook created for your project that you will need to delete manually. The action logs should indicate when this has happened.
   - Because the Create/Delete Deploy Hook endpoints are not officially supported, this functionality could break at any moment. Production deployments are built on the official API, but preview deployments are not, and it is possible that this preview deployments could stop working completely.
 - This action does not upload any builds to Cloudflare, it simply triggers a Pages deployment, which builds and deploys your site from Cloudflare's servers. Cloudflare does not currently provide anyway to upload assets directly to a Pages site. (This also means it is not technically necessary to have a separate build step for this action to succeed.)
