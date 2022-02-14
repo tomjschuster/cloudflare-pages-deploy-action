@@ -71,7 +71,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: tomjschuster/cloudflare-pages-deploy-action/v0
+      - uses: tomjschuster/cloudflare-pages-deploy-action@v0
         with:
           account-id: '${{ env.CF_ACCOUNT_ID }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
@@ -95,7 +95,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: tomjschuster/cloudflare-pages-deploy-action/v0
+      - uses: tomjschuster/cloudflare-pages-deploy-action@v0
         with:
           account-id: '${{ env.CF_ACCOUNT_ID }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
@@ -123,13 +123,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: tomjschuster/cloudflare-pages-deploy-action/v0
+      - uses: tomjschuster/cloudflare-pages-deploy-action@v0
         with:
           account-id: '${{ env.CF_ACCOUNT_ID }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          branch: ${{ github.head_ref }}
+          branch: ${{ github.ref_name }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
           CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
@@ -149,6 +149,10 @@ on:
       - qa
   pull_request:
 
+  env:
+    CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
+    PAGES_PROJECT_NAME: my-pages-project
+
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -162,19 +166,16 @@ on:
           email: '${{ secrets.CF_EMAIL }}'
           preview: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
-          PAGES_PROJECT_NAME: my-pages-project
 
       - name: Deploy qa/staging
-        if: ${{ contains(['refs/heads/qa', 'refs/heads/staging'], github.ref) && github.event_name == 'push' }}
+        if: ${{ contains(fromJson('["refs/heads/qa", "refs/heads/staging"]'), github.ref) && github.event_name == 'push' }}
         uses: tomjschuster/cloudflare-pages-deploy-action@v0
         with:
           account-id: '${{ env.CF_ACCOUNT_ID }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          branch: ${{ github.head_ref }}
+          branch: ${{ github.ref_name }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy production
