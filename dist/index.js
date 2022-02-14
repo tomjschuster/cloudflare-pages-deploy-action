@@ -591,7 +591,7 @@ function validateBranch(sdk, production, preview, branch) {
             return;
         if (preview) {
             if (!currentBranch()) {
-                return '`preview` argument was provided, but current branch could not be found.';
+                return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).';
             }
             const project = yield sdk.getProject();
             const repo = currentRepo();

@@ -84,7 +84,7 @@ async function validateBranch(
 
   if (preview) {
     if (!currentBranch()) {
-      return '`preview` argument was provided, but current branch could not be found.'
+      return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).'
     }
 
     const project = await sdk.getProject()

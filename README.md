@@ -43,8 +43,9 @@ Be sure to use a secure method such as [Encrypted Secrets](https://docs.github.c
 | api-key      | yes      | Your [ Cloudflare Global API Key ] ( https://developers.cloudflare.com/api/keys#view-your-api-key ) (Pages does not accept API tokens).                                                                                                                                                                                                |
 | email        | yes      | The email associated with your Cloudflare account.                                                                                                                                                                                                                                                                                     |
 | project-name | yes      | The name of your Pages project.                                                                                                                                                                                                                                                                                                        |
-| production   | no\*     | If true, triggers a production Pages deployment. Either production or branch must be provided (but not both).                                                                                                                                                                                                                          |
-| branch       | no\*     | Triggers a Pages preview deployment for the provided branch. Either production or branch must be provided (but not both).                                                                                                                                                                                                              |
+| production   | no\*     | If true, triggers a production Pages deployment. Either `production`, `preview` or `branch` must be provided (but only one).                                                                                                                                                                                                           |
+| preview      | no\*     | If true, triggers a Pages deployment for the branch of the current pull request. Either `production`, `preview` or `branch` must be provided (but only one)                                                                                                                                                                            |
+| branch       | no\*     | Triggers a Pages preview deployment for the provided branch. Either `production`, `preview` or `branch` must be provided (but only one)                                                                                                                                                                                                |
 | github-token | no       | GitHub access token. If provided, triggers a GitHub deployment with the status of the Pages deployment. If using the Actions provided [`GITHUB_TOKEN`](https://docs.github.com/en/actions/security-guides/automatic-token-authentication), deployments will only work if the current repo is associated with the target Pages project. |
 
 ## Outputs
@@ -56,7 +57,7 @@ Be sure to use a secure method such as [Encrypted Secrets](https://docs.github.c
 
 ## Example
 
-Add a workflow (`.github/workflows/deploy-production.yml`):
+Deploy your production environment:
 
 ```yaml
 name: Deploy to production
@@ -72,16 +73,17 @@ jobs:
     steps:
       - uses: tomjschuster/cloudflare-pages-deploy-action/v0
         with:
-          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           production: true
         env:
+          CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
           PAGES_PROJECT_NAME: my-pages-project
 ```
 
-Add a workflow (`.github/workflows/deploy-preview.yml`):
+Deploy preview environments for all pull requests:
 
 ```yaml
 name: Deploy preview
@@ -95,17 +97,46 @@ jobs:
     steps:
       - uses: tomjschuster/cloudflare-pages-deploy-action/v0
         with:
-          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ env.PAGES_PROJECT_NAME }}'
-          branch: ${{ github.head_ref }}
+          preview: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
+          CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
           PAGES_PROJECT_NAME: my-pages-project
 ```
 
-Or combine production and preview in a single job:
+Deploy any branch
+
+```yaml
+name: Deploy to environments
+
+on:
+  push:
+    branches:
+      - qa
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tomjschuster/cloudflare-pages-deploy-action/v0
+        with:
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          branch: ${{ github.head_ref }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
+          PAGES_PROJECT_NAME: my-pages-project
+```
+
+Or combine all deploys in a single job:
 
 ```yaml
 name: CI
@@ -114,6 +145,8 @@ on:
   push:
     branches:
       - main
+      - staging
+      - qa
   pull_request:
 
   deploy:
@@ -123,10 +156,24 @@ on:
         if: ${{ github.event_name == 'pull_request' }}
         uses: tomjschuster/cloudflare-pages-deploy-action@v0
         with:
-          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
+          preview: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          CF_ACCOUNT_ID: 752b6dba29604163bde5b5b90f042f62
+          PAGES_PROJECT_NAME: my-pages-project
+
+      - name: Deploy qa/staging
+        if: ${{ contains(['refs/heads/qa', 'refs/heads/staging'], github.ref) && github.event_name == 'push' }}
+        uses: tomjschuster/cloudflare-pages-deploy-action@v0
+        with:
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
           project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
           branch: ${{ github.head_ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -134,10 +181,10 @@ on:
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: tomjschuster/cloudflare-pages-deploy-action@v0
         with:
-          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           production: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
