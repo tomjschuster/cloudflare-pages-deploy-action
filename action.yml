@@ -1,5 +1,5 @@
 name: 'Deploy a Cloudflare Pages Project'
-description: 'Deploy your Cloudflare Pages project, fully integrated into your CI pipeline.
+description: 'Deploy your Cloudflare Pages project, fully integrated into your CI pipeline.'
 author: 'Tom Schuster'
 branding:
   icon: 'upload-cloud'
