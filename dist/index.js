@@ -531,23 +531,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core_1 = __nccwpck_require__(2186);
+const github_1 = __nccwpck_require__(5438);
 const cloudflare_1 = __importDefault(__nccwpck_require__(5588));
 const dashboard_1 = __nccwpck_require__(5819);
 const deploy_1 = __nccwpck_require__(7538);
 const errors_1 = __nccwpck_require__(9292);
-const github_1 = __nccwpck_require__(5928);
+const github_2 = __nccwpck_require__(5928);
 const utils_1 = __nccwpck_require__(918);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         let deployment;
-        const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs();
-        const branchError = validateBranch(production, branch);
-        if (branchError)
-            return yield fail(branchError);
+        const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } = getInputs();
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
         const githubHandlers = getDeploymentHandlers(accountId, githubToken);
+        const branchError = yield validateBranch(sdk, production, preview, branch);
+        if (branchError)
+            return yield fail(branchError);
+        const deployBranch = getBranch(production, preview, branch);
         try {
-            deployment = yield (0, deploy_1.deploy)(sdk, branch, githubHandlers);
+            deployment = yield (0, deploy_1.deploy)(sdk, deployBranch, githubHandlers);
             setOutputFromDeployment(deployment);
         }
         catch (error) {
@@ -569,20 +571,39 @@ function getInputs() {
         email: (0, core_1.getInput)('email', { required: true }),
         projectName: (0, core_1.getInput)('project-name', { required: true }),
         production: (0, core_1.getBooleanInput)('production'),
+        preview: (0, core_1.getBooleanInput)('preview'),
         branch: (0, core_1.getInput)('branch'),
         githubToken: (0, core_1.getInput)('github-token'),
     };
 }
-function validateBranch(production, branch) {
-    const inputCount = [production, branch].filter((x) => x).length;
-    if (inputCount > 1) {
-        return 'Inputs "production" and "branch" cannot be used together.';
-    }
-    if (inputCount === 0) {
-        return 'Must provide exactly one of the following inputs: "production", "branch"';
-    }
-    if (branch)
-        return validateBranchName(branch);
+function validateBranch(sdk, production, preview, branch) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const inputCount = [production, preview, branch].filter((x) => x).length;
+        if (inputCount > 1) {
+            return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.';
+        }
+        if (inputCount === 0) {
+            return 'Must provide exactly one of the following inputs: "production", "branch"';
+        }
+        if (branch)
+            return validateBranchName(branch);
+        if (production)
+            return;
+        if (preview) {
+            if (!currentBranch()) {
+                return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).';
+            }
+            const project = yield sdk.getProject();
+            const repo = currentRepo();
+            const pRepo = projectRepo(project);
+            if (repo !== pRepo) {
+                return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`;
+            }
+            if (currentBranch() === projectProductionBranch(project)) {
+                return '`preview` argument can not be used on the production branch.';
+            }
+        }
+    });
 }
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
 function validateBranchName(branch) {
@@ -593,13 +614,20 @@ function validateBranchName(branch) {
         return `Branch name must be 255 characters or less (received ${branch})`;
     }
 }
+function getBranch(production, preview, branch) {
+    if (production)
+        return;
+    if (branch)
+        return branch;
+    return currentBranch();
+}
 function getDeploymentHandlers(accountId, githubToken) {
     if (!githubToken) {
         console.log('No GitHub token provided, skipping GitHub deployments.');
         return;
     }
     console.log('GitHub token provided. GitHub deployment will be created.');
-    return (0, github_1.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
+    return (0, github_2.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
 }
 function setOutputFromDeployment(deployment) {
     (0, core_1.setOutput)('deployment-id', deployment.id);
@@ -640,6 +668,19 @@ function hookDeleteErrorMessage(accountId, projectName, name) {
 }
 function reportIssueMessage() {
     return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`;
+}
+function currentBranch() {
+    var _a;
+    return (_a = github_1.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.ref;
+}
+function currentRepo() {
+    return `${github_1.context.repo.owner}/${github_1.context.repo.repo}`;
+}
+function projectRepo(project) {
+    return `${project.source.config.owner}/${project.source.config.repo_name}`;
+}
+function projectProductionBranch(project) {
+    return project.source.config.production_branch;
 }
 
 

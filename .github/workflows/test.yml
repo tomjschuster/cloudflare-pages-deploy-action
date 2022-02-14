@@ -6,6 +6,7 @@ on:
       - main
 
 env:
+  CF_ACCOUNT_ID: c6b0fe2afa4b4d09801e9d18c859da8d
   PAGES_PROJECT_NAME: cloudflare-pages-deploy-action
 
 jobs:
@@ -31,20 +32,31 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: ./
         with:
-          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           production: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test Branch
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: ./
+        with:
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
+          api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
+          email: '${{ secrets.CF_EMAIL }}'
+          branch: ${{ github.head_ref }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test Preview
         if: ${{ github.event_name == 'pull_request' }}
         uses: ./
         with:
-          account-id: '${{ secrets.CF_ACCOUNT_ID }}'
+          account-id: '${{ env.CF_ACCOUNT_ID }}'
+          project-name: '${{ env.PAGES_PROJECT_NAME }}'
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
-          project-name: '${{ env.PAGES_PROJECT_NAME }}'
-          branch: ${{ github.head_ref }}
+          preview: true
           github-token: ${{ secrets.GITHUB_TOKEN }}

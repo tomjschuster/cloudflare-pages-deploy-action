@@ -20,6 +20,9 @@ inputs:
   production:
     description: 'Indicates that the production build of the pages project should be deployed.'
     default: false
+  preview:
+    description: 'Indicates that a preview environment for the current branch should be deployed.'
+    default: false
   branch:
     description: 'Name of the branch to be deployed. Cannot be used together with "production".'
   github-token:

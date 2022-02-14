@@ -1,25 +1,29 @@
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
-import createPagesSdk from './cloudflare'
+import { context } from '@actions/github'
+import createPagesSdk, { PagesSdk } from './cloudflare'
 import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
 import { deploy } from './deploy'
 import { DeployHookDeleteError, DeploymentError } from './errors'
 import { createGithubCloudfrontDeploymentHandlers } from './github'
-import { Deployment, DeploymentHandlers, Stage } from './types'
+import { Deployment, DeploymentHandlers, Project, Stage } from './types'
 import { isStageSuccess } from './utils'
 
 export async function run(): Promise<void> {
   let deployment: Deployment | undefined
 
-  const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs()
-
-  const branchError = validateBranch(production, branch)
-  if (branchError) return await fail(branchError)
+  const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } =
+    getInputs()
 
   const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
   const githubHandlers = getDeploymentHandlers(accountId, githubToken)
 
+  const branchError = await validateBranch(sdk, production, preview, branch)
+  if (branchError) return await fail(branchError)
+
+  const deployBranch = getBranch(production, preview, branch)
+
   try {
-    deployment = await deploy(sdk, branch, githubHandlers)
+    deployment = await deploy(sdk, deployBranch, githubHandlers)
     setOutputFromDeployment(deployment)
   } catch (error) {
     logExtraErrorMessages(accountId, projectName, error, deployment)
@@ -40,6 +44,7 @@ type Inputs = {
   email: string
   projectName: string
   production: boolean
+  preview: boolean
   branch?: string
   githubToken?: string
 }
@@ -51,16 +56,22 @@ function getInputs(): Inputs {
     email: getInput('email', { required: true }),
     projectName: getInput('project-name', { required: true }),
     production: getBooleanInput('production'),
+    preview: getBooleanInput('preview'),
     branch: getInput('branch'),
     githubToken: getInput('github-token'),
   }
 }
 
-function validateBranch(production: boolean, branch?: string): string | undefined {
-  const inputCount = [production, branch].filter((x) => x).length
+async function validateBranch(
+  sdk: PagesSdk,
+  production: boolean,
+  preview: boolean,
+  branch?: string,
+): Promise<string | undefined> {
+  const inputCount = [production, preview, branch].filter((x) => x).length
 
   if (inputCount > 1) {
-    return 'Inputs "production" and "branch" cannot be used together.'
+    return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.'
   }
 
   if (inputCount === 0) {
@@ -68,6 +79,26 @@ function validateBranch(production: boolean, branch?: string): string | undefine
   }
 
   if (branch) return validateBranchName(branch)
+
+  if (production) return
+
+  if (preview) {
+    if (!currentBranch()) {
+      return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).'
+    }
+
+    const project = await sdk.getProject()
+    const repo = currentRepo()
+    const pRepo = projectRepo(project)
+
+    if (repo !== pRepo) {
+      return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`
+    }
+
+    if (currentBranch() === projectProductionBranch(project)) {
+      return '`preview` argument can not be used on the production branch.'
+    }
+  }
 }
 
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/
@@ -79,6 +110,12 @@ function validateBranchName(branch: string): string | undefined {
   if (branch.length > 255) {
     return `Branch name must be 255 characters or less (received ${branch})`
   }
+}
+
+function getBranch(production: boolean, preview: boolean, branch?: string): string | undefined {
+  if (production) return
+  if (branch) return branch
+  return currentBranch()
 }
 
 function getDeploymentHandlers(
@@ -146,4 +183,20 @@ function hookDeleteErrorMessage(accountId: string, projectName: string, name: st
 
 function reportIssueMessage(): string {
   return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`
+}
+
+function currentBranch(): string | undefined {
+  return context.payload.pull_request?.head.ref
+}
+
+function currentRepo(): string | undefined {
+  return `${context.repo.owner}/${context.repo.repo}`
+}
+
+function projectRepo(project: Project): string {
+  return `${project.source.config.owner}/${project.source.config.repo_name}`
+}
+
+function projectProductionBranch(project: Project): string {
+  return project.source.config.production_branch
 }
