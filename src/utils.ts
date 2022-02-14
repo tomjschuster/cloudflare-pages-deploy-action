@@ -8,6 +8,10 @@ export function isStageSuccess(stage: Stage | StageLogsResult): boolean {
   return stage.status === 'success'
 }
 
+export function isStageFailure(stage: Stage | StageLogsResult): boolean {
+  return stage.status === 'failure'
+}
+
 export function isStageComplete(stage: Stage | StageLogsResult): boolean {
   return stage.status === 'success' || stage.status === 'failure'
 }

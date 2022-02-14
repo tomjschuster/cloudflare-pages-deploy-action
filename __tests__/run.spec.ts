@@ -38,6 +38,7 @@ describe('run', () => {
     ;(getInput as jest.Mock).mockReturnValueOnce('email')
     ;(getInput as jest.Mock).mockReturnValueOnce('projectName')
     consoleLog = jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    jest.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
   it('creates an sdk with the proper inputs', async () => {
@@ -154,7 +155,7 @@ describe('run', () => {
 
     await run()
 
-    expect(setFailed).toHaveBeenCalledWith('foo')
+    expect(setFailed).toHaveBeenCalledWith(new Error('foo'))
   })
 
   it('sets the job state to failed and logs a message when deployment starts but does not complete', async () => {
@@ -163,8 +164,8 @@ describe('run', () => {
 
     await run()
 
-    // 1 for failure, 1 for GitHub deployment
-    expect(consoleLog).toHaveBeenCalledTimes(2)
+    // 1 for failure, 1 for GitHub deployment, 1 for report an issue
+    expect(consoleLog).toHaveBeenCalledTimes(3)
     expect(setFailed).toHaveBeenCalled()
   })
 
@@ -174,8 +175,8 @@ describe('run', () => {
 
     await run()
 
-    // 1 for failed deploy, 1 for failed hook deletion, 1 for GitHub deployment
-    expect(consoleLog).toHaveBeenCalledTimes(3)
+    // 1 for failed deploy, 1 for failed hook deletion, 1 for GitHub deployment, 1 for report an issue
+    expect(consoleLog).toHaveBeenCalledTimes(4)
     expect(setFailed).toHaveBeenCalled()
   })
 

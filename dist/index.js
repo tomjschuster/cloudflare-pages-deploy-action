@@ -23,6 +23,10 @@ const nanoid_1 = __nccwpck_require__(7592);
 const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const errors_1 = __nccwpck_require__(9292);
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
+/**
+ * Captures account/project info in closures and interprets success/failure results as
+ * a resolved/rejected Promise.
+ */
 function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -48,9 +52,6 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             console.log(`Creating a deployment for the production branch of ${projectName}.\n`);
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
         }
-        // Cloudflare API only supports triggering deployments for the production branch, however, it
-        // is possible to create deployments for any branch using ad-hoc web-hooks
-        // (CREATE/DELETE Deploy hook are undocumented so could break)
         return createBranchDeploymentUsingDeployHook(branch);
     }
     function getDeploymentInfo(id) {
@@ -59,6 +60,14 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function getStageLogs(id, name) {
         return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`));
     }
+    /**
+     * Creates a Pages deployment for any branch by creating, triggering, then deleting a deploy hook.
+     * This is because the `Create deployment` endpoint only supports triggering production deployments.
+     * If production branch is passed, we call `createDeployment` without a branch to avoid this hack.
+     *
+     * Create/Delete Deploy Hook endpoints are not documented, but are observable from the Pages dashboard
+     * when creating/deleting hooks.
+     **/
     function createBranchDeploymentUsingDeployHook(branch) {
         return __awaiter(this, void 0, void 0, function* () {
             const project = yield getProject();
@@ -67,14 +76,16 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 return yield createDeployment();
             console.log('');
             console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
+            // UNDOCUMENTED ENDPOINT
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
             }
-            function executeDeployHook(id) {
-                return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST');
-            }
+            // UNDOCUMENTED ENDPOINT
             function deleteDeployHook(id) {
                 return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
+            }
+            function executeDeployHook(id) {
+                return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST');
             }
             const name = `github-actions-temp-${normalizedIsoString()}-${(0, nanoid_1.nanoid)()}`;
             const { hook_id } = yield createDeployHook(name, branch);
@@ -88,7 +99,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             }
             catch (e) {
                 // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
-                // so they know to delete it manually through the dashboard
+                // so they can delete it manually through the dashboard
                 if (!deletedHook) {
                     const deployHookDeleteError = new errors_1.DeployHookDeleteError(e, name);
                     yield deleteDeployHook(hook_id).catch(() => Promise.reject(deployHookDeleteError));
@@ -159,10 +170,12 @@ exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
 const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
+/**
+ * Creates a CloudFlare Pages for the provided branch (or production branch if no branch provided),
+ * logging output for each stage and returning the deployment on complete.
+ * */
 function deploy(sdk, branch, handlers) {
     return __awaiter(this, void 0, void 0, function* () {
-        // // @ts-expect-error foo
-        // await handlers?.onStart()
         const deployment = yield sdk.createDeployment(branch);
         yield (handlers === null || handlers === void 0 ? void 0 : handlers.onStart(deployment));
         try {
@@ -175,51 +188,50 @@ function deploy(sdk, branch, handlers) {
     });
 }
 exports.deploy = deploy;
+/** Iterates through a deployments stages, polling and printing logs until each stage completes */
 function logDeploymentStages(sdk, { id, stages }, onChange) {
     return __awaiter(this, void 0, void 0, function* () {
         for (const { name } of stages) {
-            let stageLogs = yield sdk.getStageLogs(id, name);
-            let lastLogId;
-            if (shouldSkip(stageLogs))
+            const poll = makePoller(sdk, id, name);
+            // Get initial logs for stage
+            let { stage, newLogs, unexpectedlyPastStage } = yield poll();
+            // We don't log certain stages (such as queued) if they were already complete. Move onto next stage.
+            if (shouldSkip(stage))
                 continue;
+            // Mark new stage through callback
             onChange && (yield onChange(name));
+            // New GitHub Actions log group for stage
             (0, core_1.startGroup)(displayNewStage(name));
+            // For certain stages we add some extra initial logs (e.g. to announce build start sooner)
             for (const log of extraStageLogs(name))
                 console.log(log);
-            let pollAttempts = 1;
-            let skippedStage = false;
             // eslint-disable-next-line no-constant-condition
             while (true) {
-                for (const log of getNewStageLogs(stageLogs, lastLogId))
+                for (const log of newLogs)
                     console.log(log.message);
-                if ((0, utils_1.isStageComplete)(stageLogs))
-                    break;
-                yield (0, utils_1.wait)(getPollInterval(stageLogs));
-                // Loop logic assumes that every deploy stage will end with a status of failure or success.
-                // Since this is not explicitly stated in the API docs, we defensively peek at the next stage
-                // every 5 polls to see if the next stage has started to reduce the probability of an infinite
-                // loop until the the job times out.
-                const deploymentInfo = pollAttempts++ % 5 === 0 ? yield sdk.getDeploymentInfo(id) : undefined;
-                lastLogId = getLastLogId(stageLogs);
-                stageLogs = yield sdk.getStageLogs(id, name);
-                // Deployment is no longer on stage, but we don't recognize stage as complete; avoid infinite loop
-                if (!(0, utils_1.isStageComplete)(stageLogs) &&
-                    (deploymentInfo === null || deploymentInfo === void 0 ? void 0 : deploymentInfo.latest_stage) &&
-                    deploymentInfo.latest_stage.name !== name) {
-                    skippedStage = true;
+                if ((0, utils_1.isStageComplete)(stage) || unexpectedlyPastStage) {
+                    // Close stage's GitHub Actions log group
+                    (0, core_1.endGroup)();
+                    // If stage fails, other stages will never complete
+                    if ((0, utils_1.isStageFailure)(stage))
+                        return;
+                    // Move onto next stage
                     break;
                 }
+                yield (0, utils_1.wait)(getPollInterval(stage));
+                ({ stage, newLogs, unexpectedlyPastStage } = yield poll());
             }
-            (0, core_1.endGroup)();
-            // If stage fails, following stages will never complete
-            if (!(0, utils_1.isStageSuccess)(stageLogs) && !skippedStage)
-                return;
         }
     });
 }
+/** Avoids logging unnecessary stages, namely to avoid logging `queued` if the build was never queued. */
 function shouldSkip(stage) {
     return (0, utils_1.isQueuedStage)(stage) && (0, utils_1.isStageSuccess)(stage);
 }
+/**
+ * Returns visually friendly label for stage log group. In practice this is title case,
+ * but switch implementation gives more flexibility.
+ */
 function displayNewStage(stageName) {
     switch (stageName) {
         case 'queued':
@@ -231,11 +243,15 @@ function displayNewStage(stageName) {
         case 'build':
             return 'Build';
         case 'deploy':
-            return `Deploy`;
+            return 'Deploy';
         default:
             return stageName;
     }
 }
+/**
+ * Enhances CloudFlare Pages logs at start of stage, namely by marking start build step,
+ * since there build feedback until end of build)
+ * */
 function extraStageLogs(stageName) {
     switch (stageName) {
         case 'build':
@@ -244,11 +260,63 @@ function extraStageLogs(stageName) {
             return [];
     }
 }
-function stagePollIntervalEnvName(name) {
-    return `${name.toUpperCase()}_POLL_INTERVAL`;
+/** Higher Order Function for keeping track of last logged id's and intermitently polling latest deployment stage  */
+function makePoller(sdk, id, stageName, checkDeploymentEvery = 5) {
+    let pollCount = 0;
+    let lastLogId;
+    return function poll() {
+        return __awaiter(this, void 0, void 0, function* () {
+            pollCount++;
+            const stageLogs = yield sdk.getStageLogs(id, stageName);
+            // Avoids infinite loop if stage logs does not return expected statuses on completion
+            const unexpectedlyPastStage = !(0, utils_1.isStageComplete)(stageLogs) && pollCount % checkDeploymentEvery === 0
+                ? yield checkIfPastStage(sdk, id, stageName)
+                : false;
+            const newLogs = getNewStageLogs(stageLogs, lastLogId);
+            lastLogId = stageLogs.end;
+            return { stage: stageLogs, newLogs, unexpectedlyPastStage };
+        });
+    };
 }
-exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
-function pollIntervalFromEnv(name) {
+// The logs endpoint doesn't seem to offer pagination so we have to fetch all logs every poll
+// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
+function getNewStageLogs(logs, lastLogId) {
+    if (lastLogId === undefined)
+        return logs.data;
+    if (logs.end === lastLogId)
+        return [];
+    return logs.data.filter((log) => log.id > lastLogId);
+}
+// Expected pages deploy behavior is that every stage will end with a status of `success` or `failure`.
+// Since this is not explicitly documented, and to account for
+function checkIfPastStage(sdk, id, stageName) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const { latest_stage } = yield sdk.getDeploymentInfo(id);
+        return latest_stage.name !== stageName;
+    });
+}
+// The stages that last longer don't give feedback in between start/end, so there's no real need to
+// check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
+// (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
+function getPollInterval(stage) {
+    var _a, _b;
+    switch (stage.name) {
+        case 'queued':
+        case 'initialize':
+        case 'build':
+            return ((_a = parseEnvPollInterval(stage.name)) !== null && _a !== void 0 ? _a : 
+            /* istanbul ignore next */
+            10000);
+        case 'clone_repo':
+        case 'deploy':
+        default:
+            return ((_b = parseEnvPollInterval(stage.name)) !== null && _b !== void 0 ? _b : 
+            /* istanbul ignore next */
+            3000);
+    }
+}
+/** Parses stage specific poll times from env (e.g. `$BUILD_POLL_INTERVAL`), mostly for testing */
+function parseEnvPollInterval(name) {
     const envName = stagePollIntervalEnvName(name);
     const value = process.env[envName];
     /* istanbul ignore next */
@@ -263,35 +331,10 @@ function pollIntervalFromEnv(name) {
     }
     return parsed;
 }
-function getPollInterval(stage) {
-    var _a, _b;
-    switch (stage.name) {
-        case 'queued':
-        case 'initialize':
-        case 'build':
-            return ((_a = pollIntervalFromEnv(stage.name)) !== null && _a !== void 0 ? _a : 
-            /* istanbul ignore next */
-            10000);
-        case 'clone_repo':
-        case 'deploy':
-        default:
-            return ((_b = pollIntervalFromEnv(stage.name)) !== null && _b !== void 0 ? _b : 
-            /* istanbul ignore next */
-            5000);
-    }
+function stagePollIntervalEnvName(name) {
+    return `${name.toUpperCase()}_POLL_INTERVAL`;
 }
-// The logs endpoint doesn't offer pagination or tail logging so we have to fetch all logs every poll
-// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
-function getNewStageLogs(logs, lastLogId) {
-    if (lastLogId === undefined)
-        return logs.data;
-    if (logs.end === lastLogId)
-        return [];
-    return logs.data.filter((log) => log.id > lastLogId);
-}
-function getLastLogId(logs) {
-    return !logs || logs.data.length === 0 ? undefined : Math.max(...logs.data.map((log) => log.id));
-}
+exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
 
 
 /***/ }),
@@ -497,27 +540,20 @@ function run() {
         let deployment;
         const { accountId, apiKey, email, projectName, production, branch, githubToken } = getInputs();
         const branchError = validateBranch(production, branch);
-        if (branchError) {
-            (0, core_1.setFailed)(branchError);
-            return;
-        }
+        if (branchError)
+            return yield fail(branchError);
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
-        const githubHandlers = getDeploymentHanlders(accountId, githubToken);
+        const githubHandlers = getDeploymentHandlers(accountId, githubToken);
         try {
             deployment = yield (0, deploy_1.deploy)(sdk, branch, githubHandlers);
             setOutputFromDeployment(deployment);
         }
         catch (error) {
-            handleError(accountId, projectName, error, deployment);
-            yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure());
-            (0, core_1.setFailed)(error instanceof Error ? error.message : `${error}`);
-            return;
+            logExtraErrorMessages(accountId, projectName, error, deployment);
+            return yield fail(error, githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure);
         }
-        const failureMessage = checkDeploymentFailure(deployment);
-        if (failureMessage) {
-            yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure());
-            (0, core_1.setFailed)(failureMessage);
-            return;
+        if (!(0, utils_1.isStageSuccess)(deployment.latest_stage)) {
+            return fail(failedDeployMessage(deployment.latest_stage), githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onFailure);
         }
         yield (githubHandlers === null || githubHandlers === void 0 ? void 0 : githubHandlers.onSuccess());
         logSuccess(deployment);
@@ -546,33 +582,6 @@ function validateBranch(production, branch) {
     if (branch)
         return validateBranchName(branch);
 }
-function setOutputFromDeployment(deployment) {
-    (0, core_1.setOutput)('deployment-id', deployment.id);
-    (0, core_1.setOutput)('url', deployment.url);
-}
-function checkDeploymentFailure({ latest_stage }) {
-    if (latest_stage && !(0, utils_1.isStageSuccess)(latest_stage)) {
-        return failedDeployMessage(latest_stage.name);
-    }
-}
-function handleError(accountId, projectName, error, deployment) {
-    deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
-    console.log(unexpectedErrorMessage(accountId, projectName, deployment));
-    if (error instanceof errors_1.DeployHookDeleteError) {
-        console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName));
-    }
-}
-function failedDeployMessage(stageName) {
-    return `Deployment failed on stage: ${stageName}. See log output above for more information.`;
-}
-function unexpectedErrorMessage(accountId, projectName, deployment) {
-    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment === null || deployment === void 0 ? void 0 : deployment.id);
-    return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
-}
-function hookDeleteErrorMessage(accountId, projectName, name) {
-    const url = (0, dashboard_1.dashboardBuildDeploymentsSettingsUrl)(accountId, projectName);
-    return `Failed to delete temporary deploy hook "${name}".Go to ${url} to manually delete the deploy hook`;
-}
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
 function validateBranchName(branch) {
     if (invalidBranchNameRegex.test(branch)) {
@@ -582,18 +591,53 @@ function validateBranchName(branch) {
         return `Branch name must be 255 characters or less (received ${branch})`;
     }
 }
-function logSuccess({ project_name, url, latest_stage }) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
-    console.log(`URL: ${url}`);
-}
-function getDeploymentHanlders(accountId, githubToken) {
+function getDeploymentHandlers(accountId, githubToken) {
     if (!githubToken) {
         console.log('No GitHub token provided, skipping GitHub deployments.');
         return;
     }
     console.log('GitHub token provided. GitHub deployment will be created.');
     return (0, github_1.createGithubCloudfrontDeploymentHandlers)(accountId, githubToken);
+}
+function setOutputFromDeployment(deployment) {
+    (0, core_1.setOutput)('deployment-id', deployment.id);
+    (0, core_1.setOutput)('url', deployment.url);
+}
+function logSuccess({ project_name, url, latest_stage }) {
+    console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
+    console.log(`URL: ${url}`);
+}
+// `setFailed` doesn't print stack trace. This allow to exit gracefully with debug info.
+function fail(e, beforeExit) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const error = e instanceof Error ? e : new Error(`${e}`);
+        (0, core_1.setFailed)(error);
+        console.error(`${error.message}\n${error.stack}`);
+        if (beforeExit)
+            yield beforeExit();
+    });
+}
+function logExtraErrorMessages(accountId, projectName, error, deployment) {
+    deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
+    console.log(unexpectedErrorMessage(accountId, projectName, deployment));
+    if (error instanceof errors_1.DeployHookDeleteError) {
+        console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName));
+    }
+    console.log(reportIssueMessage());
+}
+function failedDeployMessage(stage) {
+    return `Deployment failed on stage: ${stage.name} with a status of '${stage.status}'. See log output above for more information.`;
+}
+function unexpectedErrorMessage(accountId, projectName, deployment) {
+    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment === null || deployment === void 0 ? void 0 : deployment.id);
+    return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
+}
+function hookDeleteErrorMessage(accountId, projectName, name) {
+    const url = (0, dashboard_1.dashboardBuildDeploymentsSettingsUrl)(accountId, projectName);
+    return `Failed to delete temporary deploy hook "${name}". Go to ${url} to manually delete the deploy hook`;
+}
+function reportIssueMessage() {
+    return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`;
 }
 
 
@@ -605,7 +649,7 @@ function getDeploymentHanlders(accountId, githubToken) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = exports.isStageComplete = exports.isStageSuccess = exports.isQueuedStage = void 0;
+exports.wait = exports.isStageComplete = exports.isStageFailure = exports.isStageSuccess = exports.isQueuedStage = void 0;
 function isQueuedStage(stage) {
     return stage.name === 'queued';
 }
@@ -614,6 +658,10 @@ function isStageSuccess(stage) {
     return stage.status === 'success';
 }
 exports.isStageSuccess = isStageSuccess;
+function isStageFailure(stage) {
+    return stage.status === 'failure';
+}
+exports.isStageFailure = isStageFailure;
 function isStageComplete(stage) {
     return stage.status === 'success' || stage.status === 'failure';
 }

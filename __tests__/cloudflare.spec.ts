@@ -24,7 +24,7 @@ const emptyFailure: ApiResult<null> = {
   messages: [],
 }
 
-function mockCfFetchSuccess(result: any): void {
+function mockCfFetchSuccess<T>(result: T): void {
   ;(fetch as jest.Mock).mockResolvedValueOnce({
     ok: true,
     json: jest.fn(() => Promise.resolve({ success: true, result: result })),
