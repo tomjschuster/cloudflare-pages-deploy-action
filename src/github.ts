@@ -56,6 +56,7 @@ function createGitHubDeployment(
       ...cfDeploymentParams(accountId, cfDeployment),
       required_contexts: [],
       transient_environment: cfDeployment.environment !== 'production',
+      auto_merge: false,
     })
     .then(resolveDeploymentId)
 }
