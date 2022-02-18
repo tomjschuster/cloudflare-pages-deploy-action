@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.9](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.8...v0.0.9) (2022-02-18)
+
+
+### Bug Fixes
+
+* set auto_merge false for GitHub deployment ([1c6b343](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/1c6b3432745f8b0bc909a9be8cc9e7261d072d39))
+
 ### [0.0.8](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.7...v0.0.8) (2022-02-14)
 
 
