@@ -468,7 +468,7 @@ function createGithubCloudfrontDeploymentCallbacks(accountId, token) {
 exports.createGithubCloudfrontDeploymentCallbacks = createGithubCloudfrontDeploymentCallbacks;
 function createGitHubDeployment(octokit, accountId, cfDeployment) {
     return octokit.rest.repos
-        .createDeployment(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { required_contexts: [], transient_environment: cfDeployment.environment !== 'production' }))
+        .createDeployment(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { required_contexts: [], transient_environment: cfDeployment.environment !== 'production', auto_merge: false }))
         .then(resolveDeploymentId);
 }
 function createGitHubDeploymentStatus(octokit, accountId, id, state, cfDeployment) {
