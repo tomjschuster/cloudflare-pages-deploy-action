@@ -112,7 +112,7 @@ function generateHtml(date: Date, sha1: string, color1: string, color2: string):
     </style>
   </head>
   <body>
-    <h1 class="title">Cloud Flare Pages Deploy Action Test Site</h1>
+    <h1 class="title"><a href="https://github.com/tomjschuster/cloudflare-pages-deploy-action">Cloud Flare Pages Deploy Action</a> Test Site</h1>
     <div class="color-banner"></div>
     <table class="build-info">
       <thead>
