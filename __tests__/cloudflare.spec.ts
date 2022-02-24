@@ -279,6 +279,22 @@ describe('createSdk', () => {
 
     ;(fetch as jest.Mock).mockResolvedValueOnce(res)
 
-    await expect(sdk.createDeployment()).rejects.toThrowError('Bad Gateway')
+    await expect(sdk.createDeployment()).rejects.toThrowError(/^502: Bad Gateway$/)
+  })
+
+  it('formats failed fetch errors', async () => {
+    const res = {
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      json: () => Promise.resolve({ message: "You don't have access to this resource." }),
+    }
+    ;(fetch as jest.Mock).mockResolvedValueOnce(res)
+    const message = `403: Forbidden
+{
+  "message": "You don't have access to this resource."
+}`
+
+    await expect(sdk.createDeployment()).rejects.toThrowError(message)
   })
 })
