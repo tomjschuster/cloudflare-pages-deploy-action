@@ -37,7 +37,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                     'X-Auth-Email': email,
                 },
                 body,
-            }).then((res) => res.ok ? res.json() : Promise.reject(new Error(`${res.status}: ${res.statusText}`))));
+            }).then((res) => (res.ok ? res.json() : failedRequestError(res))));
             if (!result.success)
                 return Promise.reject(new errors_1.CloudFlareApiError(result));
             return result.result;
@@ -121,6 +121,18 @@ function projectPath(accountId, projectName, path) {
 }
 function normalizedIsoString() {
     return new Date().toISOString().split('.')[0].replace(/[-:]/g, '');
+}
+function failedRequestError(res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const text = `${res.status}: ${res.statusText}`;
+        try {
+            const json = yield res.json();
+            return Promise.reject(new Error(`${text}\n${JSON.stringify(json, undefined, 2)}`));
+        }
+        catch (_e) {
+            return Promise.reject(new Error(text));
+        }
+    });
 }
 
 

@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import fetch, { BodyInit } from 'node-fetch'
+import fetch, { BodyInit, Response } from 'node-fetch'
 import { CloudFlareApiError, DeployHookDeleteError } from './errors'
 import {
   ApiResult,
@@ -46,9 +46,7 @@ export default function createPagesSdk({
         'X-Auth-Email': email,
       },
       body,
-    }).then((res) =>
-      res.ok ? res.json() : Promise.reject(new Error(`${res.status}: ${res.statusText}`)),
-    )) as ApiResult<T>
+    }).then((res) => (res.ok ? res.json() : failedRequestError(res)))) as ApiResult<T>
 
     if (!result.success) return Promise.reject(new CloudFlareApiError(result))
 
@@ -152,4 +150,15 @@ function projectPath(accountId: string, projectName: string, path: string): stri
 
 function normalizedIsoString(): string {
   return new Date().toISOString().split('.')[0].replace(/[-:]/g, '')
+}
+
+async function failedRequestError(res: Response): Promise<string> {
+  const text = `${res.status}: ${res.statusText}`
+
+  try {
+    const json = await res.json()
+    return Promise.reject(new Error(`${text}\n${JSON.stringify(json, undefined, 2)}`))
+  } catch (_e) {
+    return Promise.reject(new Error(text))
+  }
 }
