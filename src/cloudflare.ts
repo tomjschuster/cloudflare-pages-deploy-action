@@ -47,7 +47,7 @@ export default function createPagesSdk({
       },
       body,
     }).then((res) =>
-      res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
+      res.ok ? res.json() : Promise.reject(new Error(`${res.status}: ${res.statusText}`)),
     )) as ApiResult<T>
 
     if (!result.success) return Promise.reject(new CloudFlareApiError(result))

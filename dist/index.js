@@ -37,7 +37,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                     'X-Auth-Email': email,
                 },
                 body,
-            }).then((res) => res.ok ? res.json() : Promise.reject(new Error(res.statusText))));
+            }).then((res) => res.ok ? res.json() : Promise.reject(new Error(`${res.status}: ${res.statusText}`))));
             if (!result.success)
                 return Promise.reject(new errors_1.CloudFlareApiError(result));
             return result.result;
