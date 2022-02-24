@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.10](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.9...v0.0.10) (2022-02-24)
+
+
+### Features
+
+* status code logging ([#33](https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues/33)) ([3998893](https://github.com/tomjschuster/cloudflare-pages-deploy-action/commit/39988934acc5686767cd22c64162396b864df222))
+
 ### [0.0.9](https://github.com/tomjschuster/cloudflare-pages-deploy-action/compare/v0.0.8...v0.0.9) (2022-02-18)
 
 
