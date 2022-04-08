@@ -2331,7 +2331,7 @@ function _objectWithoutProperties(source, excluded) {
   return target;
 }
 
-const VERSION = "3.5.1";
+const VERSION = "3.6.0";
 
 const _excluded = ["authStrategy"];
 class Octokit {
@@ -13497,10 +13497,10 @@ let random = bytes => {
   fillPool((bytes -= 0))
   return pool.subarray(poolOffset - bytes, poolOffset)
 }
-let customRandom = (alphabet, size, getRandom) => {
+let customRandom = (alphabet, defaultSize, getRandom) => {
   let mask = (2 << (31 - Math.clz32((alphabet.length - 1) | 1))) - 1
-  let step = Math.ceil((1.6 * mask * size) / alphabet.length)
-  return () => {
+  let step = Math.ceil((1.6 * mask * defaultSize) / alphabet.length)
+  return (size = defaultSize) => {
     let id = ''
     while (true) {
       let bytes = getRandom(step)
@@ -13512,7 +13512,8 @@ let customRandom = (alphabet, size, getRandom) => {
     }
   }
 }
-let customAlphabet = (alphabet, size) => customRandom(alphabet, size, random)
+let customAlphabet = (alphabet, size = 21) =>
+  customRandom(alphabet, size, random)
 let nanoid = (size = 21) => {
   fillPool((size -= 0))
   let id = ''
@@ -14413,8 +14414,8 @@ class Body {
 	 * @return  Promise
 	 */
 	async json() {
-		const buffer = await consumeBody(this);
-		return JSON.parse(buffer.toString());
+		const text = await this.text();
+		return JSON.parse(text);
 	}
 
 	/**
@@ -14424,7 +14425,7 @@ class Body {
 	 */
 	async text() {
 		const buffer = await consumeBody(this);
-		return buffer.toString();
+		return new TextDecoder().decode(buffer);
 	}
 
 	/**
@@ -15504,7 +15505,7 @@ class Request extends Body {
 		}
 
 		if (parsedURL.username !== '' || parsedURL.password !== '') {
-			throw new TypeError(`${parsedURL} is an url with embedded credentails.`);
+			throw new TypeError(`${parsedURL} is an url with embedded credentials.`);
 		}
 
 		let method = init.method || input.method || 'GET';
