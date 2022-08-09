@@ -25,7 +25,7 @@ const emptyFailure: ApiResult<null> = {
 }
 
 function mockCfFetchSuccess<T>(result: T): void {
-  ;(fetch as jest.Mock).mockResolvedValueOnce({
+  ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
     ok: true,
     json: jest.fn(() => Promise.resolve({ success: true, result: result })),
   })
@@ -162,7 +162,7 @@ describe('createSdk', () => {
 
     mockCfFetchSuccess({ source: { config: { production_branch: 'main' } } })
     mockCfFetchSuccess({ hook_id: hookId })
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 502,
       statusText: 'Bad Gateway',
@@ -209,12 +209,12 @@ describe('createSdk', () => {
 
     mockCfFetchSuccess({ source: { config: { production_branch: 'main' } } })
     mockCfFetchSuccess({ hook_id: hookId })
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 502,
       statusText: 'Bad Gateway',
     })
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 502,
       statusText: 'Bad Gateway',
@@ -255,7 +255,7 @@ describe('createSdk', () => {
   })
 
   it('rejects with an API error when response is not successful', async () => {
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: jest.fn(() => Promise.resolve(failure)),
     })
@@ -266,7 +266,7 @@ describe('createSdk', () => {
   })
 
   it('rejects with an API error when response is not successful with no messages', async () => {
-    ;(fetch as jest.Mock).mockResolvedValueOnce({
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: jest.fn(() => Promise.resolve(emptyFailure)),
     })
@@ -277,7 +277,7 @@ describe('createSdk', () => {
   it('rejects with the response when not okay', async () => {
     const res = { ok: false, status: 502, statusText: 'Bad Gateway' }
 
-    ;(fetch as jest.Mock).mockResolvedValueOnce(res)
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce(res)
 
     await expect(sdk.createDeployment()).rejects.toThrowError(/^502: Bad Gateway$/)
   })
@@ -289,7 +289,7 @@ describe('createSdk', () => {
       statusText: 'Forbidden',
       json: () => Promise.resolve({ message: "You don't have access to this resource." }),
     }
-    ;(fetch as jest.Mock).mockResolvedValueOnce(res)
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce(res)
     const message = `403: Forbidden
 {
   "message": "You don't have access to this resource."
