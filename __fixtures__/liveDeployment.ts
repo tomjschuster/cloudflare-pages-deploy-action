@@ -1,4 +1,4 @@
-import { Deployment, StageLogsResult } from '../src/types'
+import { Deployment, DeploymentLogsResult } from '../src/types'
 
 export const initialLiveDeployment: Deployment = {
   id: 'a50b60b9-ac32-4279-9e53-2ad913a94a03',
@@ -150,214 +150,143 @@ export const completeLiveDeployment: Deployment = {
   aliases: null,
 }
 
-export const activeQueuedLogs: StageLogsResult = {
-  name: 'queued',
-  started_on: '2022-02-01T15:04:23.016698Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeQueuedLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:23.016698Z',
-      message: 'Build is queued',
+      ts: '2022-02-01T15:04:23.016698Z',
+      line: 'Build is queued',
     },
   ],
 }
 
-export const completeQueuedLogs: StageLogsResult = {
-  name: 'queued',
-  started_on: '2022-02-01T15:04:23.016698Z',
-  ended_on: '2022-02-01T15:04:22.987058Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeQueuedLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:23.016698Z',
-      message: 'Build is queued',
+      ts: '2022-02-01T15:04:23.016698Z',
+      line: 'Build is queued',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:04:22.987058Z',
-      message: 'Finished',
+      ts: '2022-02-01T15:04:22.987058Z',
+      line: 'Finished',
     },
   ],
 }
 
-export const activeInitializeLogs: StageLogsResult = {
-  name: 'initialize',
-  started_on: '2022-02-01T15:04:22.987058Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeInitializeLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:22.987058Z',
-      message: 'Initializing build environment. This may take up to a few minutes to complete',
+      ts: '2022-02-01T15:04:22.987058Z',
+      line: 'Initializing build environment. This may take up to a few minutes to complete',
     },
   ],
 }
 
-export const completeInitializeLogs: StageLogsResult = {
-  name: 'initialize',
-  started_on: '2022-02-01T15:04:22.987058Z',
-  ended_on: '2022-02-01T15:06:30.987713Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeInitializeLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:22.987058Z',
-      message: 'Initializing build environment. This may take up to a few minutes to complete',
+      ts: '2022-02-01T15:04:22.987058Z',
+      line: 'Initializing build environment. This may take up to a few minutes to complete',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:06:30.987713Z',
-      message: 'Success: Finished initializing build environment',
+      ts: '2022-02-01T15:06:30.987713Z',
+      line: 'Success: Finished initializing build environment',
     },
   ],
 }
 
-export const activeCloneRepoLogs: StageLogsResult = {
-  name: 'clone_repo',
-  started_on: '2022-02-01T15:06:30.987713Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeCloneRepoLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:30.987713Z',
-      message: 'Cloning repository...',
+      ts: '2022-02-01T15:06:30.987713Z',
+      line: 'Cloning repository...',
     },
   ],
 }
 
-export const completeCloneRepoLogs: StageLogsResult = {
-  name: 'clone_repo',
-  started_on: '2022-02-01T15:06:30.987713Z',
-  ended_on: '2022-02-01T15:06:32.563318Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeCloneRepoLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:30.987713Z',
-      message: 'Cloning repository...',
+      ts: '2022-02-01T15:06:30.987713Z',
+      line: 'Cloning repository...',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:06:32.563318Z',
-      message: 'Success: Finished cloning repository files',
+      ts: '2022-02-01T15:06:32.563318Z',
+      line: 'Success: Finished cloning repository files',
     },
   ],
 }
 
-export const activeBuildLogs: StageLogsResult = {
-  name: 'build',
-  started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeBuildLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
-      message: 'Installing dependencies',
+      ts: '2022-02-01T15:06:32.745219Z',
+      line: 'Installing dependencies',
     },
   ],
 }
 
-export const stillActiveBuildLogs: StageLogsResult = {
-  name: 'build',
-  started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const stillActiveBuildLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
-      message: 'Installing dependencies',
+      ts: '2022-02-01T15:06:32.745219Z',
+      line: 'Installing dependencies',
     },
   ],
 }
 
-export const completeBuildLogs: StageLogsResult = {
-  name: 'build',
-  started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: '2022-02-01T15:08:44.121893Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeBuildLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
-      message: 'Installing dependencies',
+      ts: '2022-02-01T15:06:32.745219Z',
+      line: 'Installing dependencies',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:08:43.503367Z',
-      message: 'Validating asset output directory',
+      ts: '2022-02-01T15:08:43.503367Z',
+      line: 'Validating asset output directory',
     },
   ],
 }
 
-export const activeDeployLogs: StageLogsResult = {
-  name: 'deploy',
-  started_on: '2022-02-01T15:08:44.121893Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeDeployLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:08:44.121893Z',
-      message: "Deploying your site to Cloudflare's global network...",
+      ts: '2022-02-01T15:08:44.121893Z',
+      line: "Deploying your site to Cloudflare's global network...",
     },
   ],
 }
 
-export const completeDeployLogs: StageLogsResult = {
-  name: 'deploy',
-  started_on: '2022-02-01T15:08:44.121893Z',
-  ended_on: '2022-02-01T15:08:50.567074Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeDeployLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:08:44.121893Z',
-      message: "Deploying your site to Cloudflare's global network...",
+      ts: '2022-02-01T15:08:44.121893Z',
+      line: "Deploying your site to Cloudflare's global network...",
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:08:50.567074Z',
-      message: 'Success: Your site was deployed!',
+      ts: '2022-02-01T15:08:50.567074Z',
+      line: 'Success: Your site was deployed!',
     },
   ],
 }

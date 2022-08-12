@@ -1,4 +1,4 @@
-import { Deployment, StageLogsResult } from '../src/types'
+import { Deployment, DeploymentLogsResult } from '../src/types'
 
 export const oneStageDeployment: Deployment = {
   id: 'a50b60b9-ac32-4279-9e53-2ad913a94a03',
@@ -51,24 +51,17 @@ export const oneStageDeployment: Deployment = {
   aliases: null,
 }
 
-export const oneStageDeployLogs: StageLogsResult = {
-  name: 'deploy',
-  started_on: '2022-02-01T15:08:44.121893Z',
-  ended_on: '2022-02-01T15:08:50.567074Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const oneStageDeployLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:08:44.121893Z',
-      message: "Deploying your site to Cloudflare's global network...",
+      ts: '2022-02-01T15:08:44.121893Z',
+      line: "Deploying your site to Cloudflare's global network...",
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:08:50.567074Z',
-      message: 'Success: Your site was deployed!',
+      ts: '2022-02-01T15:08:50.567074Z',
+      line: 'Success: Your site was deployed!',
     },
   ],
 }

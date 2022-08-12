@@ -6,10 +6,8 @@ import {
   DeployHook,
   DeployHookResult,
   Deployment,
-  KnownStageName,
+  DeploymentLogsResult,
   Project,
-  StageLogsResult,
-  StageName,
 } from './types'
 
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4'
@@ -25,7 +23,11 @@ export type PagesSdk = {
   getProject(): Promise<Project>
   createDeployment(branch?: string): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
-  getStageLogs(deploymentId: string, stageName: StageName): Promise<StageLogsResult>
+  getDeploymentLogs(
+    deploymentId: string,
+    pageSize: number,
+    page: number,
+  ): Promise<DeploymentLogsResult>
 }
 
 /**
@@ -71,8 +73,18 @@ export default function createPagesSdk({
     return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`))
   }
 
-  function getStageLogs(id: string, name: KnownStageName): Promise<StageLogsResult> {
-    return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`))
+  function getDeploymentLogs(
+    id: string,
+    pageSize: number,
+    page: number,
+  ): Promise<DeploymentLogsResult> {
+    return fetchCf(
+      projectPath(
+        accountId,
+        projectName,
+        `/deployments/${id}/history/logs?$page_size=${pageSize}page=${page}`,
+      ),
+    )
   }
 
   /**
@@ -140,7 +152,7 @@ export default function createPagesSdk({
     getProject,
     createDeployment,
     getDeploymentInfo,
-    getStageLogs,
+    getDeploymentLogs,
   }
 }
 

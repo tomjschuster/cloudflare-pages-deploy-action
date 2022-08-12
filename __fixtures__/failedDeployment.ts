@@ -1,4 +1,4 @@
-import { Deployment, StageLogsResult } from '../src/types'
+import { Deployment, DeploymentLogsResult } from '../src/types'
 
 export const initialFailedDeployment: Deployment = {
   id: 'a50b60b9-ac32-4279-9e53-2ad913a94a03',
@@ -150,141 +150,95 @@ export const failedLiveDeployment: Deployment = {
   aliases: null,
 }
 
-export const completeFailureQueuedLogs: StageLogsResult = {
-  name: 'queued',
-  started_on: '2022-02-01T15:04:23.016698Z',
-  ended_on: '2022-02-01T15:04:22.987058Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeFailureQueuedLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:23.016698Z',
-      message: 'Build is queued',
+      ts: '2022-02-01T15:04:23.016698Z',
+      line: 'Build is queued',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:04:22.987058Z',
-      message: 'Finished',
+      ts: '2022-02-01T15:04:22.987058Z',
+      line: 'Finished',
     },
   ],
 }
 
-export const activeFailureInitializeLogs: StageLogsResult = {
-  name: 'initialize',
-  started_on: '2022-02-01T15:04:22.987058Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeFailureInitializeLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:22.987058Z',
-      message: 'Initializing build environment. This may take up to a few minutes to complete',
+      ts: '2022-02-01T15:04:22.987058Z',
+      line: 'Initializing build environment. This may take up to a few minutes to complete',
     },
   ],
 }
 
-export const completeFailureInitializeLogs: StageLogsResult = {
-  name: 'initialize',
-  started_on: '2022-02-01T15:04:22.987058Z',
-  ended_on: '2022-02-01T15:06:30.987713Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeFailureInitializeLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:04:22.987058Z',
-      message: 'Initializing build environment. This may take up to a few minutes to complete',
+      ts: '2022-02-01T15:04:22.987058Z',
+      line: 'Initializing build environment. This may take up to a few minutes to complete',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:06:30.987713Z',
-      message: 'Success: Finished initializing build environment',
+      ts: '2022-02-01T15:06:30.987713Z',
+      line: 'Success: Finished initializing build environment',
     },
   ],
 }
 
-export const activeFailureCloneRepoLogs: StageLogsResult = {
-  name: 'clone_repo',
-  started_on: '2022-02-01T15:06:30.987713Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeFailureCloneRepoLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:30.987713Z',
-      message: 'Cloning repository...',
+      ts: '2022-02-01T15:06:30.987713Z',
+      line: 'Cloning repository...',
     },
   ],
 }
 
-export const completeFailureCloneRepoLogs: StageLogsResult = {
-  name: 'clone_repo',
-  started_on: '2022-02-01T15:06:30.987713Z',
-  ended_on: '2022-02-01T15:06:32.563318Z',
-  status: 'success',
-  start: 0,
-  end: 1,
+export const completeFailureCloneRepoLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:30.987713Z',
-      message: 'Cloning repository...',
+      ts: '2022-02-01T15:06:30.987713Z',
+      line: 'Cloning repository...',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T15:06:32.563318Z',
-      message: 'Success: Finished cloning repository files',
+      ts: '2022-02-01T15:06:32.563318Z',
+      line: 'Success: Finished cloning repository files',
     },
   ],
 }
 
-export const activeFailureBuildLogs: StageLogsResult = {
-  name: 'build',
-  started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: null,
-  status: 'active',
-  start: 0,
-  end: 0,
+export const activeFailureBuildLogs: DeploymentLogsResult = {
   total: 1,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
-      message: 'Installing dependencies',
+      ts: '2022-02-01T15:06:32.745219Z',
+      line: 'Installing dependencies',
     },
   ],
 }
 
-export const failedFailureBuildLogs: StageLogsResult = {
-  name: 'build',
-  started_on: '2022-02-01T15:06:32.563318Z',
-  ended_on: '2022-02-01T15:08:44.121893Z',
-  status: 'failure',
-  start: 0,
-  end: 1,
+export const failedFailureBuildLogs: DeploymentLogsResult = {
   total: 2,
+  includes_container_logs: true,
   data: [
     {
-      id: 0,
-      timestamp: '2022-02-01T15:06:32.745219Z',
-      message: 'Installing dependencies',
+      ts: '2022-02-01T15:06:32.745219Z',
+      line: 'Installing dependencies',
     },
     {
-      id: 1,
-      timestamp: '2022-02-01T03:29:25.541636Z',
-      message: 'Failed: build command exited with code: 1',
+      ts: '2022-02-01T03:29:25.541636Z',
+      line: 'Failed: build command exited with code: 1',
     },
   ],
 }

@@ -242,18 +242,6 @@ describe('createSdk', () => {
     )
   })
 
-  it('calls Stage Logs', async () => {
-    await sdk.getStageLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', 'build')
-
-    expect(fetch).toHaveBeenCalledWith(
-      `${expectedBaseUrl}/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce/history/build/logs`,
-      {
-        headers: expectedHeaders,
-        method: 'GET',
-      },
-    )
-  })
-
   it('rejects with an API error when response is not successful', async () => {
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: true,

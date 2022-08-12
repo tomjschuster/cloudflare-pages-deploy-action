@@ -57,8 +57,8 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function getDeploymentInfo(id) {
         return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`));
     }
-    function getStageLogs(id, name) {
-        return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`));
+    function getDeploymentLogs(id, pageSize, page) {
+        return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/logs?$page_size=${pageSize}page=${page}`));
     }
     /**
      * Creates a Pages deployment for any branch by creating, triggering, then deleting a deploy hook.
@@ -112,7 +112,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
         getProject,
         createDeployment,
         getDeploymentInfo,
-        getStageLogs,
+        getDeploymentLogs,
     };
 }
 exports["default"] = createPagesSdk;
@@ -192,7 +192,13 @@ function deploy(sdk, branch, callbacks) {
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
         try {
-            yield logDeploymentStages(sdk, deployment, callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStageChange);
+            for (const { name } of deployment.stages) {
+                (0, core_1.startGroup)(displayNewStage(name));
+                const stage = yield trackStage(sdk, name, deployment);
+                (0, core_1.endGroup)();
+                if (stage && (0, utils_1.isStageFailure)(stage))
+                    break;
+            }
             return yield sdk.getDeploymentInfo(deployment.id);
         }
         catch (e) {
@@ -201,46 +207,19 @@ function deploy(sdk, branch, callbacks) {
     });
 }
 exports.deploy = deploy;
-/** Iterates through a deployments stages, polling and printing logs until each stage completes */
-function logDeploymentStages(sdk, { id, stages }, onChange) {
+function trackStage(sdk, name, deployment) {
     return __awaiter(this, void 0, void 0, function* () {
-        for (const { name } of stages) {
-            const poll = makePoller(sdk, id, name);
-            // Get initial logs for stage
-            let { stage, newLogs, unexpectedlyPastStage } = yield poll();
-            // We don't log certain stages (such as queued) if they were already complete. Move onto next stage.
-            if (shouldSkip(stage))
-                continue;
-            // Mark new stage through callback
-            if (onChange)
-                yield onChange(name);
-            // New GitHub Actions log group for stage
-            (0, core_1.startGroup)(displayNewStage(name));
-            // For certain stages we add some extra initial logs (e.g. to announce build start sooner)
-            for (const log of extraStageLogs(name))
-                console.log(log);
-            // eslint-disable-next-line no-constant-condition
-            while (true) {
-                for (const log of newLogs)
-                    console.log(log.message);
-                if ((0, utils_1.isStageComplete)(stage) || unexpectedlyPastStage) {
-                    // Close stage's GitHub Actions log group
-                    (0, core_1.endGroup)();
-                    // If stage fails, other stages will never complete
-                    if ((0, utils_1.isStageFailure)(stage))
-                        return;
-                    // Move onto next stage
-                    break;
-                }
-                yield (0, utils_1.wait)(getPollInterval(stage));
-                ({ stage, newLogs, unexpectedlyPastStage } = yield poll());
-            }
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            const info = yield sdk.getDeploymentInfo(deployment.id);
+            const stage = info.stages.find((s) => s.name === name);
+            if (!stage)
+                return;
+            if ((0, utils_1.isStageComplete)(stage))
+                return stage;
+            yield (0, utils_1.wait)(getPollInterval(name));
         }
     });
-}
-/** Avoids logging unnecessary stages, namely to avoid logging `queued` if the build was never queued. */
-function shouldSkip(stage) {
-    return (0, utils_1.isQueuedStage)(stage) && (0, utils_1.isStageSuccess)(stage);
 }
 /**
  * Returns visually friendly label for stage log group. In practice this is title case,
@@ -262,69 +241,22 @@ function displayNewStage(stageName) {
             return stageName;
     }
 }
-/**
- * Enhances CloudFlare Pages logs at start of stage, namely by marking start build step,
- * since there build feedback until end of build)
- * */
-function extraStageLogs(stageName) {
-    switch (stageName) {
-        case 'build':
-            return ['Building application...'];
-        default:
-            return [];
-    }
-}
-/** Higher Order Function for keeping track of last logged id's and intermitently polling latest deployment stage  */
-function makePoller(sdk, id, stageName, checkDeploymentEvery = 5) {
-    let pollCount = 0;
-    let lastLogId;
-    return function poll() {
-        return __awaiter(this, void 0, void 0, function* () {
-            pollCount++;
-            const stageLogs = yield sdk.getStageLogs(id, stageName);
-            // Avoids infinite loop if stage logs does not return expected statuses on completion
-            const unexpectedlyPastStage = !(0, utils_1.isStageComplete)(stageLogs) && pollCount % checkDeploymentEvery === 0
-                ? yield checkIfPastStage(sdk, id, stageName)
-                : false;
-            const newLogs = getNewStageLogs(stageLogs, lastLogId);
-            lastLogId = stageLogs.end;
-            return { stage: stageLogs, newLogs, unexpectedlyPastStage };
-        });
-    };
-}
-// The logs endpoint doesn't seem to offer pagination so we have to fetch all logs every poll
-// https://api.cloudflare.com/#pages-deployment-get-deployment-stage-logs
-function getNewStageLogs(logs, lastLogId) {
-    if (lastLogId === undefined)
-        return logs.data;
-    if (logs.end === lastLogId)
-        return [];
-    return logs.data.filter((log) => log.id > lastLogId);
-}
-// Expected pages deploy behavior is that every stage will end with a status of `success` or `failure`.
-// Since this is not explicitly documented, and to account for
-function checkIfPastStage(sdk, id, stageName) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const { latest_stage } = yield sdk.getDeploymentInfo(id);
-        return latest_stage.name !== stageName;
-    });
-}
 // The stages that last longer don't give feedback in between start/end, so there's no real need to
 // check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
 // (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
-function getPollInterval(stage) {
+function getPollInterval(name) {
     var _a, _b;
-    switch (stage.name) {
+    switch (name) {
         case 'queued':
         case 'initialize':
         case 'build':
-            return ((_a = parseEnvPollInterval(stage.name)) !== null && _a !== void 0 ? _a : 
+            return ((_a = parseEnvPollInterval(name)) !== null && _a !== void 0 ? _a : 
             /* istanbul ignore next */
             10000);
         case 'clone_repo':
         case 'deploy':
         default:
-            return ((_b = parseEnvPollInterval(stage.name)) !== null && _b !== void 0 ? _b : 
+            return ((_b = parseEnvPollInterval(name)) !== null && _b !== void 0 ? _b : 
             /* istanbul ignore next */
             3000);
     }
