@@ -16,7 +16,9 @@ export async function deploy(
 ): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
-  sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`))
+  const closeLogsConnection = sdk.getLiveLogs(deployment.id, ({ ts, line }) =>
+    console.log(`[${ts}]: ${line}`),
+  )
 
   try {
     for (const { name } of deployment.stages) {
@@ -29,8 +31,10 @@ export async function deploy(
       if (stage && isStageFailure(stage)) break
     }
 
+    closeLogsConnection()
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
+    closeLogsConnection()
     throw new DeploymentError(e, deployment)
   }
 }

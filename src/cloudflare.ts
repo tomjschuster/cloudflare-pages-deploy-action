@@ -30,7 +30,7 @@ export type PagesSdk = {
     pageSize: number,
     page: number,
   ): Promise<DeploymentLogsResult>
-  getLiveLogs(deploymentId: string, onLog: (log: DeploymentLog) => void): void
+  getLiveLogs(deploymentId: string, onLog: (log: DeploymentLog) => void): () => void
 }
 
 /**
@@ -151,7 +151,11 @@ export default function createPagesSdk({
     }
   }
 
-  function getLiveLogs(id: string, onLog: (log: DeploymentLog) => void): void {
+  function getLiveLogs(id: string, onLog: (log: DeploymentLog) => void): () => void {
+    let close: () => void = () => {
+      console.warn('[ws]: `close` called before WebSocket connected')
+    }
+
     fetchCf<{ jwt: string }>(projectPath(accountId, projectName, `/deployments/${id}/live`)).then(
       ({ jwt }) => {
         const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
@@ -182,8 +186,12 @@ export default function createPagesSdk({
             console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`)
           }
         }
+
+        close = connection.close
       },
     )
+
+    return close
   }
 
   return {

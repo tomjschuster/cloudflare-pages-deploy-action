@@ -110,6 +110,9 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
         });
     }
     function getLiveLogs(id, onLog) {
+        let close = () => {
+            console.warn('[ws]: `close` called before WebSocket connected');
+        };
         fetchCf(projectPath(accountId, projectName, `/deployments/${id}/live`)).then(({ jwt }) => {
             const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
             const connection = new ws_1.default(wsUrl);
@@ -137,7 +140,9 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                     console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`);
                 }
             };
+            close = connection.close;
         });
+        return close;
     }
     return {
         getProject,
@@ -223,7 +228,7 @@ function deploy(sdk, branch, callbacks) {
         const deployment = yield sdk.createDeployment(branch);
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
-        sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`));
+        const closeLogsConnection = sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`));
         try {
             for (const { name } of deployment.stages) {
                 (0, core_1.startGroup)(displayNewStage(name));
@@ -232,9 +237,11 @@ function deploy(sdk, branch, callbacks) {
                 if (stage && (0, utils_1.isStageFailure)(stage))
                     break;
             }
+            closeLogsConnection();
             return yield sdk.getDeploymentInfo(deployment.id);
         }
         catch (e) {
+            closeLogsConnection();
             throw new errors_1.DeploymentError(e, deployment);
         }
     });
