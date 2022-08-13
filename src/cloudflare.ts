@@ -1,7 +1,8 @@
+import { debug, error, info, warning } from '@actions/core'
 import { nanoid } from 'nanoid'
-import fetch, { BodyInit, Response } from 'node-fetch'
+import fetch, { BodyInit } from 'node-fetch'
 import WebSocket from 'ws'
-import { CloudFlareApiError, DeployHookDeleteError } from './errors'
+import { DeployHookDeleteError, formatApiErrors } from './errors'
 import {
   ApiResult,
   DeployHook,
@@ -44,16 +45,29 @@ export default function createPagesSdk({
   projectName,
 }: PagesSdkConfig): PagesSdk {
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
-    const result = (await fetch(`${CF_BASE_URL}${path}`, {
+    debug(`[PagesSdk] Request: ${method} ${path}`)
+    const response = await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
         'X-Auth-Key': apiKey,
         'X-Auth-Email': email,
       },
       body,
-    }).then((res) => (res.ok ? res.json() : failedRequestError(res)))) as ApiResult<T>
+    })
 
-    if (!result.success) return Promise.reject(new CloudFlareApiError(result))
+    if (!response.ok) {
+      const message = await formatApiErrors(method, path, response)
+      return Promise.reject(new Error(message))
+    }
+
+    const result: ApiResult<T> = await response.json()
+
+    if (result.success === false) {
+      const message = await formatApiErrors(method, path, response)
+      return Promise.reject(new Error(message))
+    }
+
+    debug(`[PagesSdk] ${method} ${path} [${response.status}: ${response.statusText}]`)
 
     return result.result
   }
@@ -64,8 +78,8 @@ export default function createPagesSdk({
 
   function createDeployment(branch?: string): Promise<Deployment> {
     if (!branch) {
-      console.log('')
-      console.log(`Creating a deployment for the production branch of ${projectName}.\n`)
+      info('')
+      info(`Creating a deployment for the production branch of ${projectName}.\n`)
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
 
@@ -104,8 +118,8 @@ export default function createPagesSdk({
     // Cloudflare API supports triggering production deployement without a webhook
     if (branch === project.source.config.production_branch) return await createDeployment()
 
-    console.log('')
-    console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
+    info('')
+    info(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
 
     // UNDOCUMENTED ENDPOINT
     function createDeployHook(name: string, branch: string): Promise<DeployHook> {
@@ -163,41 +177,41 @@ export default function createPagesSdk({
 
       const connection = new WebSocket(wsUrl)
       connection.onopen = () => {
-        console.log('[ws] WebSocket connection opened')
+        debug('[ws] WebSocket connection opened')
         resolve(() => {
           if (!closed) {
             connection.terminate()
             closed = true
           } else {
-            console.warn('[ws] `close()` called more than once.')
+            debug('[ws] `close()` called more than once.')
           }
         })
         resolved = true
       }
 
-      connection.onerror = (error) => {
-        console.log(`[ws] WebSocket error: ${error}`)
+      connection.onerror = (e) => {
+        debug(`[ws] WebSocket error: ${e}`)
       }
 
       connection.onclose = (event) => {
         if (!resolved) {
-          console.warn('[ws] WebSocket connection closed before resolution')
+          warning('[ws] WebSocket connection closed before resolution')
           reject(event)
         }
 
-        console.log(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`)
+        debug(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`)
       }
 
-      connection.onmessage = (e) => {
+      connection.onmessage = (evt) => {
         try {
-          const data = typeof e.data === 'string' ? JSON.parse(e.data) : undefined
+          const data = typeof evt.data === 'string' ? JSON.parse(evt.data) : undefined
           if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
             onLog(data)
           } else {
-            console.warn(`[ws] Unexpected data format`)
+            warning(`[ws] Unexpected data format:\n${JSON.stringify(data, undefined, 2)}`)
           }
-        } catch (error) {
-          console.error(`[ws] Error parsing message data: DATA: ${e.data}, ERROR: ${error}`)
+        } catch (e) {
+          error(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`)
         }
       }
     })
@@ -218,15 +232,4 @@ function projectPath(accountId: string, projectName: string, path: string): stri
 
 function normalizedIsoString(): string {
   return new Date().toISOString().split('.')[0].replace(/[-:]/g, '')
-}
-
-async function failedRequestError(res: Response): Promise<string> {
-  const text = `${res.status}: ${res.statusText}`
-
-  try {
-    const json = await res.json()
-    return Promise.reject(new Error(`${text}\n${JSON.stringify(json, undefined, 2)}`))
-  } catch (_e) {
-    return Promise.reject(new Error(text))
-  }
 }

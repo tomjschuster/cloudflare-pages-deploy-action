@@ -1,3 +1,4 @@
+import * as ActionsCore from '@actions/core'
 import fetch from 'node-fetch'
 import createPagesSdk, { PagesSdk } from '../src/cloudflare'
 import { DeployHookDeleteError } from '../src/errors'
@@ -52,7 +53,8 @@ describe('createSdk', () => {
       projectName: 'example-project',
     })
 
-    jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    jest.spyOn(ActionsCore, 'info').mockImplementation(() => undefined)
+    jest.spyOn(ActionsCore, 'debug').mockImplementation(() => undefined)
   })
 
   const expectedBaseUrl =
@@ -244,22 +246,28 @@ describe('createSdk', () => {
 
   it('rejects with an API error when response is not successful', async () => {
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
-      ok: true,
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
       json: jest.fn(() => Promise.resolve(failure)),
     })
 
     await expect(sdk.createDeployment()).rejects.toThrowError(
-      '[Cloudflare API Error]\nAn unknown error occurred [8000000]',
+      /\[500: Internal Server Error]\nAn unknown error occurred \[8000000]$/,
     )
   })
 
-  it('rejects with an API error when response is not successful with no messages', async () => {
+  it('rejects with an API error when response is ok but result is not successful', async () => {
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: jest.fn(() => Promise.resolve(emptyFailure)),
+      status: 200,
+      statusText: 'OK',
+      json: jest.fn(() => Promise.resolve(failure)),
     })
 
-    await expect(sdk.createDeployment()).rejects.toThrowError('[Cloudflare API Error]')
+    await expect(sdk.createDeployment()).rejects.toThrowError(
+      /\[200: OK]\nAn unknown error occurred \[8000000]$/,
+    )
   })
 
   it('rejects with the response when not okay', async () => {
@@ -267,22 +275,6 @@ describe('createSdk', () => {
 
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce(res)
 
-    await expect(sdk.createDeployment()).rejects.toThrowError(/^502: Bad Gateway$/)
-  })
-
-  it('formats failed fetch errors', async () => {
-    const res = {
-      ok: false,
-      status: 403,
-      statusText: 'Forbidden',
-      json: () => Promise.resolve({ message: "You don't have access to this resource." }),
-    }
-    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce(res)
-    const message = `403: Forbidden
-{
-  "message": "You don't have access to this resource."
-}`
-
-    await expect(sdk.createDeployment()).rejects.toThrowError(message)
+    await expect(sdk.createDeployment()).rejects.toThrowError(/\[502: Bad Gateway\]$/)
   })
 })

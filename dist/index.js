@@ -19,6 +19,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core_1 = __nccwpck_require__(2186);
 const nanoid_1 = __nccwpck_require__(7592);
 const node_fetch_1 = __importDefault(__nccwpck_require__(467));
 const ws_1 = __importDefault(__nccwpck_require__(8867));
@@ -31,16 +32,25 @@ const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
 function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
-            const result = (yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
+            (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
+            const response = yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
                 headers: {
                     'X-Auth-Key': apiKey,
                     'X-Auth-Email': email,
                 },
                 body,
-            }).then((res) => (res.ok ? res.json() : failedRequestError(res))));
-            if (!result.success)
-                return Promise.reject(new errors_1.CloudFlareApiError(result));
+            });
+            if (!response.ok) {
+                const message = yield (0, errors_1.formatApiErrors)(method, path, response);
+                return Promise.reject(new Error(message));
+            }
+            const result = yield response.json();
+            if (result.success === false) {
+                const message = yield (0, errors_1.formatApiErrors)(method, path, response);
+                return Promise.reject(new Error(message));
+            }
+            (0, core_1.debug)(`[PagesSdk] ${method} ${path} [${response.status}: ${response.statusText}]`);
             return result.result;
         });
     }
@@ -49,8 +59,8 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     }
     function createDeployment(branch) {
         if (!branch) {
-            console.log('');
-            console.log(`Creating a deployment for the production branch of ${projectName}.\n`);
+            (0, core_1.info)('');
+            (0, core_1.info)(`Creating a deployment for the production branch of ${projectName}.\n`);
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
         }
         return createBranchDeploymentUsingDeployHook(branch);
@@ -75,8 +85,8 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             // Cloudflare API supports triggering production deployement without a webhook
             if (branch === project.source.config.production_branch)
                 return yield createDeployment();
-            console.log('');
-            console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
+            (0, core_1.info)('');
+            (0, core_1.info)(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
             // UNDOCUMENTED ENDPOINT
             function createDeployHook(name, branch) {
                 return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
@@ -118,40 +128,40 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
                 const connection = new ws_1.default(wsUrl);
                 connection.onopen = () => {
-                    console.log('[ws] WebSocket connection opened');
+                    (0, core_1.debug)('[ws] WebSocket connection opened');
                     resolve(() => {
                         if (!closed) {
                             connection.terminate();
                             closed = true;
                         }
                         else {
-                            console.warn('[ws] `close()` called more than once.');
+                            (0, core_1.debug)('[ws] `close()` called more than once.');
                         }
                     });
                     resolved = true;
                 };
-                connection.onerror = (error) => {
-                    console.log(`[ws] WebSocket error: ${error}`);
+                connection.onerror = (e) => {
+                    (0, core_1.debug)(`[ws] WebSocket error: ${e}`);
                 };
                 connection.onclose = (event) => {
                     if (!resolved) {
-                        console.warn('[ws] WebSocket connection closed before resolution');
+                        (0, core_1.warning)('[ws] WebSocket connection closed before resolution');
                         reject(event);
                     }
-                    console.log(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`);
+                    (0, core_1.debug)(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`);
                 };
-                connection.onmessage = (e) => {
+                connection.onmessage = (evt) => {
                     try {
-                        const data = typeof e.data === 'string' ? JSON.parse(e.data) : undefined;
+                        const data = typeof evt.data === 'string' ? JSON.parse(evt.data) : undefined;
                         if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
                             onLog(data);
                         }
                         else {
-                            console.warn(`[ws] Unexpected data format`);
+                            (0, core_1.warning)(`[ws] Unexpected data format:\n${JSON.stringify(data, undefined, 2)}`);
                         }
                     }
-                    catch (error) {
-                        console.error(`[ws] Error parsing message data: DATA: ${e.data}, ERROR: ${error}`);
+                    catch (e) {
+                        (0, core_1.error)(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`);
                     }
                 };
             });
@@ -171,18 +181,6 @@ function projectPath(accountId, projectName, path) {
 }
 function normalizedIsoString() {
     return new Date().toISOString().split('.')[0].replace(/[-:]/g, '');
-}
-function failedRequestError(res) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const text = `${res.status}: ${res.statusText}`;
-        try {
-            const json = yield res.json();
-            return Promise.reject(new Error(`${text}\n${JSON.stringify(json, undefined, 2)}`));
-        }
-        catch (_e) {
-            return Promise.reject(new Error(text));
-        }
-    });
 }
 
 
@@ -230,6 +228,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
+const console_1 = __nccwpck_require__(6206);
 const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
 /**
@@ -255,9 +254,7 @@ function deploy(sdk, branch, callbacks) {
         }
         catch (e) {
             logger.flush();
-            console.error(e);
-            if (e instanceof Error)
-                console.log(e.stack);
+            (0, core_1.error)(e instanceof Error ? e : JSON.stringify(e));
             closeLogsConnection();
             throw new errors_1.DeploymentError(e, deployment);
         }
@@ -282,7 +279,7 @@ function trackStage(sdk, name, deployment, logger) {
             if (!stageHasLogs && logger.peek(logsUntil) > 0)
                 stageHasLogs = true;
             if (!groupStarted && stage.started_on && stageHasLogs) {
-                (0, core_1.startGroup)(stage.started_on + '\t' + displayNewStage(name));
+                (0, core_1.startGroup)(displayNewStage(name));
                 groupStarted = true;
             }
             if (groupStarted)
@@ -344,7 +341,7 @@ function parseEnvPollInterval(name) {
     const parsed = Number(value).valueOf();
     /* istanbul ignore next */
     if (isNaN(parsed)) {
-        console.warn(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`);
+        (0, core_1.warning)(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`);
         return undefined;
     }
     return parsed;
@@ -366,7 +363,9 @@ function makeLogger() {
     }
     function flush(until) {
         const count = peek(until);
-        logs.splice(0, count).forEach(({ ts, line }) => console.log(ts, line));
+        (0, console_1.debug)(`[deploy.ts] flushing ${count} of ${logs.length} logs`);
+        logs.splice(0, count).forEach(({ line }) => (0, core_1.info)(line));
+        (0, console_1.debug)(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`);
         return count;
     }
     return { enqueue, peek, flush };
@@ -376,24 +375,44 @@ function makeLogger() {
 /***/ }),
 
 /***/ 9292:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ (function(__unused_webpack_module, exports) {
 
 "use strict";
 
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GithubApiError = exports.DeployHookDeleteError = exports.DeploymentError = exports.CloudFlareApiError = void 0;
-class CloudFlareApiError extends Error {
-    constructor(result) {
-        super(formatApiErrors(result.errors || []));
-        Object.setPrototypeOf(this, CloudFlareApiError.prototype);
-        this.result = result;
-    }
+exports.GithubApiError = exports.DeployHookDeleteError = exports.DeploymentError = exports.formatApiErrors = void 0;
+function formatApiErrors(method, path, res) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const text = `${method} ${path} [${res.status}: ${res.statusText}]`;
+        try {
+            const json = yield res.json();
+            if (json &&
+                typeof json === 'object' &&
+                typeof Array.isArray(json.errors) &&
+                json.errors.length > 0) {
+                const errors = json.errors;
+                const messages = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
+                return `${text}\n${messages}`;
+            }
+            else {
+                return `${text}\n${JSON.stringify(json, undefined, 2)}`;
+            }
+        }
+        catch (_e) {
+            return text;
+        }
+    });
 }
-exports.CloudFlareApiError = CloudFlareApiError;
-function formatApiErrors(errors) {
-    const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
-    return apiErrors ? `[Cloudflare API Error]\n${apiErrors}` : '[Cloudflare API Error]';
-}
+exports.formatApiErrors = formatApiErrors;
 class DeploymentError extends Error {
     constructor(errorOrMessage, deployment) {
         /* istanbul ignore else */
@@ -15117,6 +15136,14 @@ module.exports = eval("require")("encoding");
 
 "use strict";
 module.exports = require("assert");
+
+/***/ }),
+
+/***/ 6206:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("console");
 
 /***/ }),
 

@@ -1,4 +1,5 @@
-import { endGroup, startGroup } from '@actions/core'
+import { endGroup, error, info, startGroup, warning } from '@actions/core'
+import { debug } from 'console'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
 import { Deployment, DeploymentCallbacks, DeploymentLog, Stage, StageName } from './types'
@@ -32,8 +33,7 @@ export async function deploy(
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
     logger.flush()
-    console.error(e)
-    if (e instanceof Error) console.log(e.stack)
+    error(e instanceof Error ? e : JSON.stringify(e))
     closeLogsConnection()
     throw new DeploymentError(e, deployment)
   }
@@ -63,7 +63,7 @@ async function trackStage(
     if (!stageHasLogs && logger.peek(logsUntil) > 0) stageHasLogs = true
 
     if (!groupStarted && stage.started_on && stageHasLogs) {
-      startGroup(stage.started_on + '\t' + displayNewStage(name))
+      startGroup(displayNewStage(name))
       groupStarted = true
     }
 
@@ -132,7 +132,7 @@ function parseEnvPollInterval(name: StageName): number | undefined {
 
   /* istanbul ignore next */
   if (isNaN(parsed)) {
-    console.warn(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`)
+    warning(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`)
     return undefined
   }
 
@@ -172,7 +172,9 @@ function makeLogger(): Logger {
   function flush(until?: string): number {
     const count = peek(until)
 
-    logs.splice(0, count).forEach(({ ts, line }) => console.log(ts, line))
+    debug(`[deploy.ts] flushing ${count} of ${logs.length} logs`)
+    logs.splice(0, count).forEach(({ line }) => info(line))
+    debug(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`)
 
     return count
   }
