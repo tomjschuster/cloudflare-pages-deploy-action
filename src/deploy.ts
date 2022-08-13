@@ -31,6 +31,7 @@ export async function deploy(
       if (stage && isStageFailure(stage)) break
     }
 
+    console.log('calling close logs connection')
     closeLogsConnection()
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
@@ -88,18 +89,13 @@ function getPollInterval(name: StageName): number {
     case 'queued':
     case 'initialize':
     case 'build':
-      return (
-        parseEnvPollInterval(name) ??
-        /* istanbul ignore next */
-        10000
-      )
     case 'clone_repo':
     case 'deploy':
     default:
       return (
         parseEnvPollInterval(name) ??
         /* istanbul ignore next */
-        3000
+        2500
       )
   }
 }

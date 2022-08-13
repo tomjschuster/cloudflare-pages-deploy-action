@@ -120,6 +120,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 connection.onopen = () => {
                     console.log('[ws]: Connection opened');
                     resolve(() => {
+                        console.log(`[WS] ${new Date().toISOString()} close called`);
                         if (!closed) {
                             connection.close();
                             closed = true;
@@ -138,7 +139,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                         console.log('[ws]: CLOSED BEFORE RESOLUTION');
                         reject(event);
                     }
-                    console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`);
+                    console.log(`[ws]: ${new Date().toISOString()} WebSocket closed: ${event.reason} (CODE: ${event.code})`);
                 };
                 connection.onmessage = (e) => {
                     try {
@@ -250,6 +251,7 @@ function deploy(sdk, branch, callbacks) {
                 if (stage && (0, utils_1.isStageFailure)(stage))
                     break;
             }
+            console.log('calling close logs connection');
             closeLogsConnection();
             return yield sdk.getDeploymentInfo(deployment.id);
         }
@@ -301,20 +303,17 @@ function displayNewStage(stageName) {
 // check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
 // (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
 function getPollInterval(name) {
-    var _a, _b;
+    var _a;
     switch (name) {
         case 'queued':
         case 'initialize':
         case 'build':
-            return ((_a = parseEnvPollInterval(name)) !== null && _a !== void 0 ? _a : 
-            /* istanbul ignore next */
-            10000);
         case 'clone_repo':
         case 'deploy':
         default:
-            return ((_b = parseEnvPollInterval(name)) !== null && _b !== void 0 ? _b : 
+            return ((_a = parseEnvPollInterval(name)) !== null && _a !== void 0 ? _a : 
             /* istanbul ignore next */
-            3000);
+            2500);
     }
 }
 /** Parses stage specific poll times from env (e.g. `$BUILD_POLL_INTERVAL`), mostly for testing */

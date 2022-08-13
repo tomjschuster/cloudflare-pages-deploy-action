@@ -165,6 +165,7 @@ export default function createPagesSdk({
       connection.onopen = () => {
         console.log('[ws]: Connection opened')
         resolve(() => {
+          console.log(`[WS] ${new Date().toISOString()} close called`)
           if (!closed) {
             connection.close()
             closed = true
@@ -184,7 +185,11 @@ export default function createPagesSdk({
           console.log('[ws]: CLOSED BEFORE RESOLUTION')
           reject(event)
         }
-        console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`)
+        console.log(
+          `[ws]: ${new Date().toISOString()} WebSocket closed: ${event.reason} (CODE: ${
+            event.code
+          })`,
+        )
       }
 
       connection.onmessage = (e) => {
