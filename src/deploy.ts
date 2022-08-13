@@ -16,7 +16,7 @@ export async function deploy(
 ): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
-  const closeLogsConnection = sdk.getLiveLogs(deployment.id, ({ ts, line }) =>
+  const closeLogsConnection = await sdk.getLiveLogs(deployment.id, ({ ts, line }) =>
     console.log(`[${ts}]: ${line}`),
   )
 

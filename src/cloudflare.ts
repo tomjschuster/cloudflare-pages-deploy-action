@@ -30,7 +30,7 @@ export type PagesSdk = {
     pageSize: number,
     page: number,
   ): Promise<DeploymentLogsResult>
-  getLiveLogs(deploymentId: string, onLog: (log: DeploymentLog) => void): () => void
+  getLiveLogs(deploymentId: string, onLog: (log: DeploymentLog) => void): Promise<() => void>
 }
 
 /**
@@ -151,47 +151,44 @@ export default function createPagesSdk({
     }
   }
 
-  function getLiveLogs(id: string, onLog: (log: DeploymentLog) => void): () => void {
-    let close: () => void = () => {
-      console.warn('[ws]: `close` called before WebSocket connected')
-    }
-
-    fetchCf<{ jwt: string }>(projectPath(accountId, projectName, `/deployments/${id}/live`)).then(
-      ({ jwt }) => {
-        const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
-
-        const connection = new WebSocket(wsUrl)
-        connection.onopen = () => {
-          console.log('[ws]: Connection opened')
-        }
-
-        connection.onerror = (error) => {
-          console.log(`[ws]: WebSocket error: ${error}`)
-        }
-
-        connection.onclose = (event) => {
-          console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`)
-        }
-
-        connection.onmessage = (e) => {
-          try {
-            const data = typeof e.data === 'string' ? JSON.parse(e.data) : undefined
-            if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
-              console.log(`[ws]: WebSocket data: ${data}`)
-              onLog(data)
-            } else {
-              console.warn(`[ws] Unexpected data format`)
-            }
-          } catch (error) {
-            console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`)
-          }
-        }
-
-        close = connection.close
-      },
+  async function getLiveLogs(id: string, onLog: (log: DeploymentLog) => void): Promise<() => void> {
+    const { jwt } = await fetchCf<{ jwt: string }>(
+      projectPath(accountId, projectName, `/deployments/${id}/live`),
     )
 
-    return close
+    return new Promise((resolve, reject) => {
+      let resolved = false
+      const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
+
+      const connection = new WebSocket(wsUrl)
+      connection.onopen = () => {
+        console.log('[ws]: Connection opened')
+        resolve(connection.close)
+        resolved = true
+      }
+
+      connection.onerror = (error) => {
+        console.log(`[ws]: WebSocket error: ${error}`)
+      }
+
+      connection.onclose = (event) => {
+        if (!resolved) reject(event)
+        console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`)
+      }
+
+      connection.onmessage = (e) => {
+        try {
+          const data = typeof e.data === 'string' ? JSON.parse(e.data) : undefined
+          if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
+            onLog(data)
+          } else {
+            console.warn(`[ws] Unexpected data format`)
+          }
+        } catch (error) {
+          console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`)
+        }
+      }
+    })
   }
 
   return {

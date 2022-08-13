@@ -110,39 +110,41 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
         });
     }
     function getLiveLogs(id, onLog) {
-        let close = () => {
-            console.warn('[ws]: `close` called before WebSocket connected');
-        };
-        fetchCf(projectPath(accountId, projectName, `/deployments/${id}/live`)).then(({ jwt }) => {
-            const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
-            const connection = new ws_1.default(wsUrl);
-            connection.onopen = () => {
-                console.log('[ws]: Connection opened');
-            };
-            connection.onerror = (error) => {
-                console.log(`[ws]: WebSocket error: ${error}`);
-            };
-            connection.onclose = (event) => {
-                console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`);
-            };
-            connection.onmessage = (e) => {
-                try {
-                    const data = typeof e.data === 'string' ? JSON.parse(e.data) : undefined;
-                    if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
-                        console.log(`[ws]: WebSocket data: ${data}`);
-                        onLog(data);
+        return __awaiter(this, void 0, void 0, function* () {
+            const { jwt } = yield fetchCf(projectPath(accountId, projectName, `/deployments/${id}/live`));
+            return new Promise((resolve, reject) => {
+                let resolved = false;
+                const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
+                const connection = new ws_1.default(wsUrl);
+                connection.onopen = () => {
+                    console.log('[ws]: Connection opened');
+                    resolve(connection.close);
+                    resolved = true;
+                };
+                connection.onerror = (error) => {
+                    console.log(`[ws]: WebSocket error: ${error}`);
+                };
+                connection.onclose = (event) => {
+                    if (!resolved)
+                        reject(event);
+                    console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`);
+                };
+                connection.onmessage = (e) => {
+                    try {
+                        const data = typeof e.data === 'string' ? JSON.parse(e.data) : undefined;
+                        if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
+                            onLog(data);
+                        }
+                        else {
+                            console.warn(`[ws] Unexpected data format`);
+                        }
                     }
-                    else {
-                        console.warn(`[ws] Unexpected data format`);
+                    catch (error) {
+                        console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`);
                     }
-                }
-                catch (error) {
-                    console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`);
-                }
-            };
-            close = connection.close;
+                };
+            });
         });
-        return close;
     }
     return {
         getProject,
@@ -228,7 +230,7 @@ function deploy(sdk, branch, callbacks) {
         const deployment = yield sdk.createDeployment(branch);
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
-        const closeLogsConnection = sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`));
+        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`));
         try {
             for (const { name } of deployment.stages) {
                 (0, core_1.startGroup)(displayNewStage(name));
