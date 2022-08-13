@@ -228,7 +228,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
-const console_1 = __nccwpck_require__(6206);
 const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
 /**
@@ -363,9 +362,9 @@ function makeLogger() {
     }
     function flush(until) {
         const count = peek(until);
-        (0, console_1.debug)(`[deploy.ts] flushing ${count} of ${logs.length} logs`);
+        (0, core_1.debug)(`[deploy.ts] flushing ${count} of ${logs.length} logs`);
         logs.splice(0, count).forEach(({ line }) => (0, core_1.info)(line));
-        (0, console_1.debug)(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`);
+        (0, core_1.debug)(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`);
         return count;
     }
     return { enqueue, peek, flush };
@@ -15136,14 +15135,6 @@ module.exports = eval("require")("encoding");
 
 "use strict";
 module.exports = require("assert");
-
-/***/ }),
-
-/***/ 6206:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("console");
 
 /***/ }),
 
