@@ -268,13 +268,17 @@ function deploy(sdk, branch, callbacks) {
 exports.deploy = deploy;
 function trackStage(sdk, name, deployment, flushLogs) {
     return __awaiter(this, void 0, void 0, function* () {
+        let pollCount = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
             const polledAt = new Date().toISOString();
             const info = yield sdk.getDeploymentInfo(deployment.id);
+            pollCount++;
+            console.log(`${name} (${pollCount}) ${JSON.stringify(info)}`);
             const stage = info.stages.find((s) => s.name === name);
             if (!stage)
                 return;
+            console.log('Flushing:', stage.ended_on, polledAt);
             flushLogs(stage.ended_on || polledAt);
             if ((0, utils_1.isStageComplete)(stage))
                 return stage;

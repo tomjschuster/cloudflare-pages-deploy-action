@@ -49,14 +49,18 @@ async function trackStage(
   deployment: Deployment,
   flushLogs: FlushFn,
 ): Promise<Stage | undefined> {
+  let pollCount = 0
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const polledAt = new Date().toISOString()
     const info = await sdk.getDeploymentInfo(deployment.id)
+    pollCount++
+    console.log(`${name} (${pollCount}) ${JSON.stringify(info)}`)
     const stage = info.stages.find((s) => s.name === name)
 
     if (!stage) return
 
+    console.log('Flushing:', stage.ended_on, polledAt)
     flushLogs(stage.ended_on || polledAt)
 
     if (isStageComplete(stage)) return stage
