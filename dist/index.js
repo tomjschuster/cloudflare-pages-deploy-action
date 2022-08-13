@@ -367,6 +367,7 @@ function makeLogger() {
         // flush all if no timestamp provided or if all timestamps less than until
         const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex;
         logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line));
+        console.log('FLUSHED:', currentLength, logUntilIndex);
     }
     return [enqueue, flush];
 }

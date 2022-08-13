@@ -165,6 +165,8 @@ function makeLogger(): [EnqueueFun, FlushFn] {
     const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex
 
     logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line))
+
+    console.log('FLUSHED:', currentLength, logUntilIndex)
   }
 
   return [enqueue, flush]
