@@ -30,9 +30,11 @@
   "dependencies": {
     "@actions/core": "^1.9.1",
     "@actions/github": "^5.0.3",
+    "bufferutil": "^4.0.6",
     "nanoid": "^3.3.4",
     "node-fetch": "^2.6.7",
     "ts-node": "^10.9.1",
+    "utf-8-validate": "^5.0.9",
     "ws": "^8.8.1"
   },
   "devDependencies": {
