@@ -244,10 +244,8 @@ function deploy(sdk, branch, callbacks) {
         const [enqueueLog, flushLogs] = makeLogger();
         const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, enqueueLog);
         try {
-            for (const { name, started_on } of deployment.stages) {
-                (0, core_1.startGroup)(started_on + '\t' + displayNewStage(name));
+            for (const { name } of deployment.stages) {
                 const stage = yield trackStage(sdk, name, deployment, flushLogs);
-                (0, core_1.endGroup)();
                 if (stage && (0, utils_1.isStageFailure)(stage))
                     break;
             }
@@ -269,19 +267,30 @@ exports.deploy = deploy;
 function trackStage(sdk, name, deployment, flushLogs) {
     return __awaiter(this, void 0, void 0, function* () {
         let pollCount = 0;
+        let groupStarted = false;
         // eslint-disable-next-line no-constant-condition
         while (true) {
             const polledAt = new Date().toISOString();
             const info = yield sdk.getDeploymentInfo(deployment.id);
             pollCount++;
-            console.log(`${name} (${pollCount}) ${JSON.stringify(info)}`);
+            console.log(`${name} (${pollCount}) ${JSON.stringify(info.stages)}`);
             const stage = info.stages.find((s) => s.name === name);
-            if (!stage)
+            if (!stage) {
+                if (groupStarted)
+                    (0, core_1.endGroup)();
                 return;
+            }
+            if (!groupStarted && stage.started_on) {
+                (0, core_1.startGroup)(stage.started_on + '\t' + displayNewStage(name));
+                groupStarted = true;
+            }
             console.log('Flushing:', stage.ended_on, polledAt);
             flushLogs(stage.ended_on || polledAt);
-            if ((0, utils_1.isStageComplete)(stage))
+            if ((0, utils_1.isStageComplete)(stage)) {
+                if (groupStarted)
+                    (0, core_1.endGroup)();
                 return stage;
+            }
             yield (0, utils_1.wait)(getPollInterval(name));
         }
     });

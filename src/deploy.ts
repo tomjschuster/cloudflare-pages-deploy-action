@@ -21,12 +21,8 @@ export async function deploy(
   const closeLogsConnection = await sdk.getLiveLogs(deployment.id, enqueueLog)
 
   try {
-    for (const { name, started_on } of deployment.stages) {
-      startGroup(started_on + '\t' + displayNewStage(name))
-
+    for (const { name } of deployment.stages) {
       const stage = await trackStage(sdk, name, deployment, flushLogs)
-
-      endGroup()
 
       if (stage && isStageFailure(stage)) break
     }
@@ -50,20 +46,32 @@ async function trackStage(
   flushLogs: FlushFn,
 ): Promise<Stage | undefined> {
   let pollCount = 0
+  let groupStarted = false
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const polledAt = new Date().toISOString()
     const info = await sdk.getDeploymentInfo(deployment.id)
     pollCount++
-    console.log(`${name} (${pollCount}) ${JSON.stringify(info)}`)
+    console.log(`${name} (${pollCount}) ${JSON.stringify(info.stages)}`)
     const stage = info.stages.find((s) => s.name === name)
 
-    if (!stage) return
+    if (!stage) {
+      if (groupStarted) endGroup()
+      return
+    }
+
+    if (!groupStarted && stage.started_on) {
+      startGroup(stage.started_on + '\t' + displayNewStage(name))
+      groupStarted = true
+    }
 
     console.log('Flushing:', stage.ended_on, polledAt)
     flushLogs(stage.ended_on || polledAt)
 
-    if (isStageComplete(stage)) return stage
+    if (isStageComplete(stage)) {
+      if (groupStarted) endGroup()
+      return stage
+    }
 
     await wait(getPollInterval(name))
   }
