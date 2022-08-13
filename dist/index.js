@@ -278,11 +278,10 @@ function trackStage(sdk, name, deployment, flushLogs) {
                     (0, core_1.endGroup)();
                 return;
             }
-            if (!groupStarted && stage.started_on && !(name === 'queued' && logCount === 0)) {
+            if (!groupStarted && stage.started_on && logCount > 0) {
                 (0, core_1.startGroup)(stage.started_on + '\t' + displayNewStage(name));
                 groupStarted = true;
             }
-            console.log('Flushing:', stage.ended_on, polledAt);
             logCount += flushLogs(name === 'deploy' ? undefined : stage.ended_on || polledAt);
             if ((0, utils_1.isStageComplete)(stage)) {
                 if (groupStarted)
@@ -363,7 +362,7 @@ function makeLogger() {
                 logs.findIndex(({ ts }) => new Date(ts) > untilDate)
             : -1;
         // flush all if no timestamp provided or if all timestamps less than until
-        const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex;
+        const logUntilIndex = outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1;
         logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line));
         console.log('FLUSHED:', currentLength, logUntilIndex);
         console.log('PENDING', JSON.stringify(logs));

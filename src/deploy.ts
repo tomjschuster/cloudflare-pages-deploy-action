@@ -58,12 +58,11 @@ async function trackStage(
       return
     }
 
-    if (!groupStarted && stage.started_on && !(name === 'queued' && logCount === 0)) {
+    if (!groupStarted && stage.started_on && logCount > 0) {
       startGroup(stage.started_on + '\t' + displayNewStage(name))
       groupStarted = true
     }
 
-    console.log('Flushing:', stage.ended_on, polledAt)
     logCount += flushLogs(name === 'deploy' ? undefined : stage.ended_on || polledAt)
 
     if (isStageComplete(stage)) {
@@ -160,7 +159,7 @@ function makeLogger(): [EnqueueFun, FlushFn] {
       : -1
 
     // flush all if no timestamp provided or if all timestamps less than until
-    const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex
+    const logUntilIndex = outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1
 
     logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line))
 
