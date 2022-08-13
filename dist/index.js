@@ -241,20 +241,20 @@ function deploy(sdk, branch, callbacks) {
         const deployment = yield sdk.createDeployment(branch);
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
-        const [enqueueLog, flushLogs] = makeLogger();
-        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, enqueueLog);
+        const logger = makeLogger();
+        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, logger.enqueue);
         try {
             for (const { name } of deployment.stages) {
-                const stage = yield trackStage(sdk, name, deployment, flushLogs);
+                const stage = yield trackStage(sdk, name, deployment, logger);
                 if (stage && (0, utils_1.isStageFailure)(stage))
                     break;
             }
-            flushLogs();
+            logger.flush();
             closeLogsConnection();
             return yield sdk.getDeploymentInfo(deployment.id);
         }
         catch (e) {
-            flushLogs();
+            logger.flush();
             console.error(e);
             if (e instanceof Error)
                 console.log(e.stack);
@@ -264,9 +264,9 @@ function deploy(sdk, branch, callbacks) {
     });
 }
 exports.deploy = deploy;
-function trackStage(sdk, name, deployment, flushLogs) {
+function trackStage(sdk, name, deployment, logger) {
     return __awaiter(this, void 0, void 0, function* () {
-        let logCount = 0;
+        let stageHasLogs = false;
         let groupStarted = false;
         // eslint-disable-next-line no-constant-condition
         while (true) {
@@ -278,11 +278,15 @@ function trackStage(sdk, name, deployment, flushLogs) {
                     (0, core_1.endGroup)();
                 return;
             }
-            if (!groupStarted && stage.started_on && logCount > 0) {
+            const logsUntil = stage.ended_on || polledAt;
+            if (!stageHasLogs && logger.peek(logsUntil) > 0)
+                stageHasLogs = true;
+            if (!groupStarted && stage.started_on && stageHasLogs) {
                 (0, core_1.startGroup)(stage.started_on + '\t' + displayNewStage(name));
                 groupStarted = true;
             }
-            logCount += flushLogs(name === 'deploy' ? undefined : stage.ended_on || polledAt);
+            if (groupStarted)
+                logger.flush(logsUntil);
             if ((0, utils_1.isStageComplete)(stage)) {
                 if (groupStarted)
                     (0, core_1.endGroup)();
@@ -354,21 +358,18 @@ function makeLogger() {
     function enqueue(log) {
         logs.push(log);
     }
-    function flush(until) {
+    function peek(until) {
         const currentLength = logs.length;
         const untilDate = until ? new Date(until) : undefined;
-        const outsideWindowIndex = untilDate
-            ? // assume timestamps in chronological order
-                logs.findIndex(({ ts }) => new Date(ts) > untilDate)
-            : -1;
-        // flush all if no timestamp provided or if all timestamps less than until
-        const logUntilIndex = outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1;
-        logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line));
-        console.log('FLUSHED:', currentLength, logUntilIndex);
-        console.log('PENDING', JSON.stringify(logs));
-        return Math.max(logUntilIndex, 0);
+        const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1;
+        return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1;
     }
-    return [enqueue, flush];
+    function flush(until) {
+        const count = peek(until);
+        logs.splice(0, count).forEach(({ ts, line }) => console.log(ts, line));
+        return count;
+    }
+    return { enqueue, peek, flush };
 }
 
 

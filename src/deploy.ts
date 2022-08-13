@@ -17,21 +17,21 @@ export async function deploy(
   const deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
 
-  const [enqueueLog, flushLogs] = makeLogger()
-  const closeLogsConnection = await sdk.getLiveLogs(deployment.id, enqueueLog)
+  const logger = makeLogger()
+  const closeLogsConnection = await sdk.getLiveLogs(deployment.id, logger.enqueue)
 
   try {
     for (const { name } of deployment.stages) {
-      const stage = await trackStage(sdk, name, deployment, flushLogs)
+      const stage = await trackStage(sdk, name, deployment, logger)
 
       if (stage && isStageFailure(stage)) break
     }
 
-    flushLogs()
+    logger.flush()
     closeLogsConnection()
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
-    flushLogs()
+    logger.flush()
     console.error(e)
     if (e instanceof Error) console.log(e.stack)
     closeLogsConnection()
@@ -43,9 +43,9 @@ async function trackStage(
   sdk: PagesSdk,
   name: StageName,
   deployment: Deployment,
-  flushLogs: FlushFn,
+  logger: Logger,
 ): Promise<Stage | undefined> {
-  let logCount = 0
+  let stageHasLogs = false
   let groupStarted = false
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -58,12 +58,16 @@ async function trackStage(
       return
     }
 
-    if (!groupStarted && stage.started_on && logCount > 0) {
+    const logsUntil = stage.ended_on || polledAt
+
+    if (!stageHasLogs && logger.peek(logsUntil) > 0) stageHasLogs = true
+
+    if (!groupStarted && stage.started_on && stageHasLogs) {
       startGroup(stage.started_on + '\t' + displayNewStage(name))
       groupStarted = true
     }
 
-    logCount += flushLogs(name === 'deploy' ? undefined : stage.ended_on || polledAt)
+    if (groupStarted) logger.flush(logsUntil)
 
     if (isStageComplete(stage)) {
       if (groupStarted) endGroup()
@@ -140,35 +144,38 @@ export function stagePollIntervalEnvName(name: StageName): string {
 }
 
 type EnqueueFun = (log: DeploymentLog) => void
+type PeekFn = (timestamp?: string) => number
 type FlushFn = (timestamp?: string) => number
 
-function makeLogger(): [EnqueueFun, FlushFn] {
+type Logger = {
+  enqueue: EnqueueFun
+  peek: PeekFn
+  flush: FlushFn
+}
+
+function makeLogger(): Logger {
   const logs: DeploymentLog[] = []
 
   function enqueue(log: DeploymentLog): void {
     logs.push(log)
   }
 
-  function flush(until?: string): number {
+  function peek(until?: string): number {
     const currentLength = logs.length
     const untilDate = until ? new Date(until) : undefined
 
-    const outsideWindowIndex = untilDate
-      ? // assume timestamps in chronological order
-        logs.findIndex(({ ts }) => new Date(ts) > untilDate)
-      : -1
+    const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1
 
-    // flush all if no timestamp provided or if all timestamps less than until
-    const logUntilIndex = outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1
-
-    logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line))
-
-    console.log('FLUSHED:', currentLength, logUntilIndex)
-
-    console.log('PENDING', JSON.stringify(logs))
-
-    return Math.max(logUntilIndex, 0)
+    return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1
   }
 
-  return [enqueue, flush]
+  function flush(until?: string): number {
+    const count = peek(until)
+
+    logs.splice(0, count).forEach(({ ts, line }) => console.log(ts, line))
+
+    return count
+  }
+
+  return { enqueue, peek, flush }
 }
