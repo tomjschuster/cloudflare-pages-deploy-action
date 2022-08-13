@@ -74,8 +74,9 @@ const getProject: jest.Mock<ReturnType<PagesSdk['getProject']>> = jest.fn()
 const createDeployment: jest.Mock<ReturnType<PagesSdk['createDeployment']>> = jest.fn()
 const getDeploymentInfo: jest.Mock<ReturnType<PagesSdk['getDeploymentInfo']>> = jest.fn()
 const getDeploymentLogs: jest.Mock<ReturnType<PagesSdk['getDeploymentLogs']>> = jest.fn()
+const getLiveLogs: jest.Mock<ReturnType<PagesSdk['getLiveLogs']>> = jest.fn()
 
-const sdk = { getProject, createDeployment, getDeploymentInfo, getDeploymentLogs }
+const sdk = { getProject, createDeployment, getDeploymentInfo, getDeploymentLogs, getLiveLogs }
 const accountId = '414fd50d-cb74-4dca-8d2e-ee9601a3f826'
 
 describe.skip('deploy', () => {

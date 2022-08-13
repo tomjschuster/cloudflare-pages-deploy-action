@@ -16,6 +16,7 @@ export async function deploy(
 ): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
+  sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`))
 
   try {
     for (const { name } of deployment.stages) {
