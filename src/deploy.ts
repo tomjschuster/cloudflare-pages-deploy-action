@@ -45,14 +45,12 @@ async function trackStage(
   deployment: Deployment,
   flushLogs: FlushFn,
 ): Promise<Stage | undefined> {
-  let pollCount = 0
+  let logCount = 0
   let groupStarted = false
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const polledAt = new Date().toISOString()
     const info = await sdk.getDeploymentInfo(deployment.id)
-    pollCount++
-    console.log(`${name} (${pollCount}) ${JSON.stringify(info.stages)}`)
     const stage = info.stages.find((s) => s.name === name)
 
     if (!stage) {
@@ -60,13 +58,13 @@ async function trackStage(
       return
     }
 
-    if (!groupStarted && stage.started_on) {
+    if (!groupStarted && stage.started_on && !(name === 'queued' && logCount === 0)) {
       startGroup(stage.started_on + '\t' + displayNewStage(name))
       groupStarted = true
     }
 
     console.log('Flushing:', stage.ended_on, polledAt)
-    flushLogs(stage.ended_on || polledAt)
+    logCount += flushLogs(name === 'deploy' ? undefined : stage.ended_on || polledAt)
 
     if (isStageComplete(stage)) {
       if (groupStarted) endGroup()
@@ -143,7 +141,7 @@ export function stagePollIntervalEnvName(name: StageName): string {
 }
 
 type EnqueueFun = (log: DeploymentLog) => void
-type FlushFn = (timestamp?: string) => void
+type FlushFn = (timestamp?: string) => number
 
 function makeLogger(): [EnqueueFun, FlushFn] {
   const logs: DeploymentLog[] = []
@@ -152,7 +150,7 @@ function makeLogger(): [EnqueueFun, FlushFn] {
     logs.push(log)
   }
 
-  function flush(until?: string): void {
+  function flush(until?: string): number {
     const currentLength = logs.length
     const untilDate = until ? new Date(until) : undefined
 
@@ -167,6 +165,10 @@ function makeLogger(): [EnqueueFun, FlushFn] {
     logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line))
 
     console.log('FLUSHED:', currentLength, logUntilIndex)
+
+    console.log('PENDING', JSON.stringify(logs))
+
+    return Math.max(logUntilIndex, 0)
   }
 
   return [enqueue, flush]

@@ -266,26 +266,24 @@ function deploy(sdk, branch, callbacks) {
 exports.deploy = deploy;
 function trackStage(sdk, name, deployment, flushLogs) {
     return __awaiter(this, void 0, void 0, function* () {
-        let pollCount = 0;
+        let logCount = 0;
         let groupStarted = false;
         // eslint-disable-next-line no-constant-condition
         while (true) {
             const polledAt = new Date().toISOString();
             const info = yield sdk.getDeploymentInfo(deployment.id);
-            pollCount++;
-            console.log(`${name} (${pollCount}) ${JSON.stringify(info.stages)}`);
             const stage = info.stages.find((s) => s.name === name);
             if (!stage) {
                 if (groupStarted)
                     (0, core_1.endGroup)();
                 return;
             }
-            if (!groupStarted && stage.started_on) {
+            if (!groupStarted && stage.started_on && !(name === 'queued' && logCount === 0)) {
                 (0, core_1.startGroup)(stage.started_on + '\t' + displayNewStage(name));
                 groupStarted = true;
             }
             console.log('Flushing:', stage.ended_on, polledAt);
-            flushLogs(stage.ended_on || polledAt);
+            logCount += flushLogs(name === 'deploy' ? undefined : stage.ended_on || polledAt);
             if ((0, utils_1.isStageComplete)(stage)) {
                 if (groupStarted)
                     (0, core_1.endGroup)();
@@ -368,6 +366,8 @@ function makeLogger() {
         const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex;
         logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line));
         console.log('FLUSHED:', currentLength, logUntilIndex);
+        console.log('PENDING', JSON.stringify(logs));
+        return Math.max(logUntilIndex, 0);
     }
     return [enqueue, flush];
 }
