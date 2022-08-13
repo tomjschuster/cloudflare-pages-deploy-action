@@ -158,12 +158,20 @@ export default function createPagesSdk({
 
     return new Promise((resolve, reject) => {
       let resolved = false
+      let closed = false
       const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
 
       const connection = new WebSocket(wsUrl)
       connection.onopen = () => {
         console.log('[ws]: Connection opened')
-        resolve(connection.close)
+        resolve(() => {
+          if (!closed) {
+            connection.close()
+            closed = true
+          } else {
+            console.warn('[ws]: connection.close() called more than once.')
+          }
+        })
         resolved = true
       }
 

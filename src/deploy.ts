@@ -34,6 +34,8 @@ export async function deploy(
     closeLogsConnection()
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
+    console.error(e)
+    if (e instanceof Error) console.log(e.stack)
     closeLogsConnection()
     throw new DeploymentError(e, deployment)
   }

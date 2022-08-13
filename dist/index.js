@@ -114,11 +114,20 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             const { jwt } = yield fetchCf(projectPath(accountId, projectName, `/deployments/${id}/live`));
             return new Promise((resolve, reject) => {
                 let resolved = false;
+                let closed = false;
                 const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
                 const connection = new ws_1.default(wsUrl);
                 connection.onopen = () => {
                     console.log('[ws]: Connection opened');
-                    resolve(connection.close);
+                    resolve(() => {
+                        if (!closed) {
+                            connection.close();
+                            closed = true;
+                        }
+                        else {
+                            console.warn('[ws]: connection.close() called more than once.');
+                        }
+                    });
                     resolved = true;
                 };
                 connection.onerror = (error) => {
@@ -245,6 +254,9 @@ function deploy(sdk, branch, callbacks) {
             return yield sdk.getDeploymentInfo(deployment.id);
         }
         catch (e) {
+            console.error(e);
+            if (e instanceof Error)
+                console.log(e.stack);
             closeLogsConnection();
             throw new errors_1.DeploymentError(e, deployment);
         }
