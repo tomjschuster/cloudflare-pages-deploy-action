@@ -167,7 +167,7 @@ export default function createPagesSdk({
         resolve(() => {
           console.log(`[WS] ${new Date().toISOString()} close called`)
           if (!closed) {
-            connection.close()
+            connection.terminate()
             closed = true
           } else {
             console.warn('[ws]: connection.close() called more than once.')

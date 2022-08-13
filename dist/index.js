@@ -122,7 +122,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                     resolve(() => {
                         console.log(`[WS] ${new Date().toISOString()} close called`);
                         if (!closed) {
-                            connection.close();
+                            connection.terminate();
                             closed = true;
                         }
                         else {
