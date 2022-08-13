@@ -1,4 +1,4 @@
-import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
+import { error, getBooleanInput, getInput, info, setFailed, setOutput } from '@actions/core'
 import { context } from '@actions/github'
 import createPagesSdk, { PagesSdk } from './cloudflare'
 import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
@@ -123,11 +123,11 @@ function getDeploymentCallbacks(
   githubToken: string | undefined,
 ): DeploymentCallbacks | undefined {
   if (!githubToken) {
-    console.log('No GitHub token provided, skipping GitHub deployments.')
+    info('No GitHub token provided, skipping GitHub deployments.')
     return
   }
 
-  console.log('GitHub token provided. GitHub deployment will be created.')
+  info('GitHub token provided. GitHub deployment will be created.')
   return createGithubCloudfrontDeploymentCallbacks(accountId, githubToken)
 }
 
@@ -137,15 +137,15 @@ function setOutputFromDeployment(deployment: Deployment): void {
 }
 
 function logSuccess({ project_name, url, latest_stage }: Deployment): void {
-  console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`)
-  console.log(`URL: ${url}`)
+  info(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`)
+  info(`URL: ${url}`)
 }
 
 // `setFailed` doesn't print stack trace. This allow to exit gracefully with debug info.
-async function fail(e: unknown, beforeExit?: () => Promise<void>): Promise<void> {
-  const error: Error = e instanceof Error ? e : new Error(`${e}`)
-  setFailed(error)
-  console.error(`${error.message}\n${error.stack}`)
+async function fail(e_: unknown, beforeExit?: () => Promise<void>): Promise<void> {
+  const e: Error = e_ instanceof Error ? e_ : new Error(`${e_}`)
+  setFailed(e)
+  error(`${e.message}\n${e.stack}`)
   if (beforeExit) await beforeExit()
 }
 
@@ -157,13 +157,13 @@ function logExtraErrorMessages(
 ): void {
   deployment = error instanceof DeploymentError ? error.deployment : deployment
 
-  console.log(unexpectedErrorMessage(accountId, projectName, deployment))
+  info(unexpectedErrorMessage(accountId, projectName, deployment))
 
   if (error instanceof DeployHookDeleteError) {
-    console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName))
+    info(hookDeleteErrorMessage(accountId, projectName, error.hookName))
   }
 
-  console.log(reportIssueMessage())
+  info(reportIssueMessage())
 }
 
 function failedDeployMessage(stage: Stage): string {

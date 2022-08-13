@@ -1,3 +1,4 @@
+import * as actionsCore from '@actions/core'
 import { getOctokit } from '@actions/github'
 import { createGithubCloudfrontDeploymentCallbacks } from '../src/github'
 import { completedDeployment } from '../__fixtures__/completedDeployment'
@@ -11,7 +12,7 @@ describe('createGithubCloudfrontDeploymentCallbacks', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
-    jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    jest.spyOn(actionsCore, 'info').mockImplementation(() => undefined)
   })
 
   it('returns callbacks', () => {

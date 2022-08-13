@@ -87,7 +87,7 @@ describe.skip('deploy', () => {
 
   beforeEach(() => {
     jest.resetAllMocks()
-    consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    consoleSpy = jest.spyOn(actionsCore, 'info').mockImplementation(() => undefined)
     startGroupSpy = jest.spyOn(actionsCore, 'startGroup').mockImplementation(() => undefined)
     endGroupSpy = jest.spyOn(actionsCore, 'endGroup').mockImplementation(() => undefined)
     ;['queued', 'initialize', 'clone_repo', 'test', 'build', 'deploy'].forEach((name) => {

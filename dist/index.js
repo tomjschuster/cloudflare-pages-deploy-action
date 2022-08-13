@@ -675,10 +675,10 @@ function getBranch(production, preview, branch) {
 }
 function getDeploymentCallbacks(accountId, githubToken) {
     if (!githubToken) {
-        console.log('No GitHub token provided, skipping GitHub deployments.');
+        (0, core_1.info)('No GitHub token provided, skipping GitHub deployments.');
         return;
     }
-    console.log('GitHub token provided. GitHub deployment will be created.');
+    (0, core_1.info)('GitHub token provided. GitHub deployment will be created.');
     return (0, github_2.createGithubCloudfrontDeploymentCallbacks)(accountId, githubToken);
 }
 function setOutputFromDeployment(deployment) {
@@ -686,26 +686,26 @@ function setOutputFromDeployment(deployment) {
     (0, core_1.setOutput)('url', deployment.url);
 }
 function logSuccess({ project_name, url, latest_stage }) {
-    console.log(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
-    console.log(`URL: ${url}`);
+    (0, core_1.info)(`Successfully deployed ${project_name} at ${latest_stage.ended_on}.`);
+    (0, core_1.info)(`URL: ${url}`);
 }
 // `setFailed` doesn't print stack trace. This allow to exit gracefully with debug info.
-function fail(e, beforeExit) {
+function fail(e_, beforeExit) {
     return __awaiter(this, void 0, void 0, function* () {
-        const error = e instanceof Error ? e : new Error(`${e}`);
-        (0, core_1.setFailed)(error);
-        console.error(`${error.message}\n${error.stack}`);
+        const e = e_ instanceof Error ? e_ : new Error(`${e_}`);
+        (0, core_1.setFailed)(e);
+        (0, core_1.error)(`${e.message}\n${e.stack}`);
         if (beforeExit)
             yield beforeExit();
     });
 }
 function logExtraErrorMessages(accountId, projectName, error, deployment) {
     deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
-    console.log(unexpectedErrorMessage(accountId, projectName, deployment));
+    (0, core_1.info)(unexpectedErrorMessage(accountId, projectName, deployment));
     if (error instanceof errors_1.DeployHookDeleteError) {
-        console.log(hookDeleteErrorMessage(accountId, projectName, error.hookName));
+        (0, core_1.info)(hookDeleteErrorMessage(accountId, projectName, error.hookName));
     }
-    console.log(reportIssueMessage());
+    (0, core_1.info)(reportIssueMessage());
 }
 function failedDeployMessage(stage) {
     return `Deployment failed on stage: ${stage.name} with a status of '${stage.status}'. See log output above for more information.`;

@@ -1,3 +1,4 @@
+import * as actionsCore from '@actions/core'
 import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
 import * as github from '@actions/github'
 import createPagesSdk from '../src/cloudflare'
@@ -11,6 +12,8 @@ import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeploym
 import { project } from '../__fixtures__/project'
 
 jest.mock('@actions/core', () => ({
+  error: jest.fn(),
+  info: jest.fn(),
   getInput: jest.fn(),
   getBooleanInput: jest.fn(),
   setOutput: jest.fn(),
@@ -40,8 +43,8 @@ describe('run', () => {
     ;(getInput as jest.Mock).mockReturnValueOnce('email')
     ;(getInput as jest.Mock).mockReturnValueOnce('projectName')
     ;(createPagesSdk as jest.Mock).mockReturnValue({ getProject: jest.fn(async () => project) })
-    consoleLog = jest.spyOn(console, 'log').mockImplementation(() => undefined)
-    jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    consoleLog = jest.spyOn(actionsCore, 'info').mockImplementation(() => undefined)
+    jest.spyOn(actionsCore, 'error').mockImplementation(() => undefined)
   })
 
   const originalContext = { ...github.context }
