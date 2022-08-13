@@ -166,7 +166,7 @@ function makeLogger(): Logger {
 
     const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1
 
-    return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex + 1
+    return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex
   }
 
   function flush(until?: string): number {
