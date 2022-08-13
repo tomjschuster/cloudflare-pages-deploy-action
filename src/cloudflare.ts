@@ -163,33 +163,29 @@ export default function createPagesSdk({
 
       const connection = new WebSocket(wsUrl)
       connection.onopen = () => {
-        console.log('[ws]: Connection opened')
+        console.log('[ws] WebSocket connection opened')
         resolve(() => {
-          console.log(`[WS] ${new Date().toISOString()} close called`)
           if (!closed) {
             connection.terminate()
             closed = true
           } else {
-            console.warn('[ws]: connection.close() called more than once.')
+            console.warn('[ws] `close()` called more than once.')
           }
         })
         resolved = true
       }
 
       connection.onerror = (error) => {
-        console.log(`[ws]: WebSocket error: ${error}`)
+        console.log(`[ws] WebSocket error: ${error}`)
       }
 
       connection.onclose = (event) => {
         if (!resolved) {
-          console.log('[ws]: CLOSED BEFORE RESOLUTION')
+          console.warn('[ws] WebSocket connection closed before resolution')
           reject(event)
         }
-        console.log(
-          `[ws]: ${new Date().toISOString()} WebSocket closed: ${event.reason} (CODE: ${
-            event.code
-          })`,
-        )
+
+        console.log(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`)
       }
 
       connection.onmessage = (e) => {
@@ -201,7 +197,7 @@ export default function createPagesSdk({
             console.warn(`[ws] Unexpected data format`)
           }
         } catch (error) {
-          console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`)
+          console.error(`[ws] Error parsing message data: DATA: ${e.data}, ERROR: ${error}`)
         }
       }
     })

@@ -1,7 +1,7 @@
 import { endGroup, startGroup } from '@actions/core'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
-import { Deployment, DeploymentCallbacks, Stage, StageName } from './types'
+import { Deployment, DeploymentCallbacks, DeploymentLog, Stage, StageName } from './types'
 import { isStageComplete, isStageFailure, wait } from './utils'
 
 /**
@@ -16,25 +16,26 @@ export async function deploy(
 ): Promise<Deployment> {
   const deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
-  const closeLogsConnection = await sdk.getLiveLogs(deployment.id, ({ ts, line }) =>
-    console.log(`[${ts}]: ${line}`),
-  )
+
+  const [enqueueLog, flushLogs] = makeLogger()
+  const closeLogsConnection = await sdk.getLiveLogs(deployment.id, enqueueLog)
 
   try {
-    for (const { name } of deployment.stages) {
-      startGroup(displayNewStage(name))
+    for (const { name, started_on } of deployment.stages) {
+      startGroup(started_on + '\t' + displayNewStage(name))
 
-      const stage = await trackStage(sdk, name, deployment)
+      const stage = await trackStage(sdk, name, deployment, flushLogs)
 
       endGroup()
 
       if (stage && isStageFailure(stage)) break
     }
 
-    console.log('calling close logs connection')
+    flushLogs()
     closeLogsConnection()
     return await sdk.getDeploymentInfo(deployment.id)
   } catch (e) {
+    flushLogs()
     console.error(e)
     if (e instanceof Error) console.log(e.stack)
     closeLogsConnection()
@@ -46,14 +47,18 @@ async function trackStage(
   sdk: PagesSdk,
   name: StageName,
   deployment: Deployment,
+  flushLogs: FlushFn,
 ): Promise<Stage | undefined> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    const polledAt = new Date().toISOString()
     const info = await sdk.getDeploymentInfo(deployment.id)
-
     const stage = info.stages.find((s) => s.name === name)
 
     if (!stage) return
+
+    flushLogs(stage.ended_on || polledAt)
+
     if (isStageComplete(stage)) return stage
 
     await wait(getPollInterval(name))
@@ -123,4 +128,32 @@ function parseEnvPollInterval(name: StageName): number | undefined {
 
 export function stagePollIntervalEnvName(name: StageName): string {
   return `${name.toUpperCase()}_POLL_INTERVAL`
+}
+
+type EnqueueFun = (log: DeploymentLog) => void
+type FlushFn = (timestamp?: string) => void
+
+function makeLogger(): [EnqueueFun, FlushFn] {
+  const logs: DeploymentLog[] = []
+
+  function enqueue(log: DeploymentLog): void {
+    logs.push(log)
+  }
+
+  function flush(until?: string): void {
+    const currentLength = logs.length
+    const untilDate = until ? new Date(until) : undefined
+
+    const outsideWindowIndex = untilDate
+      ? // assume timestamps in chronological order
+        logs.findIndex(({ ts }) => new Date(ts) > untilDate)
+      : -1
+
+    // flush all if no timestamp provided or if all timestamps less than until
+    const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex
+
+    logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line))
+  }
+
+  return [enqueue, flush]
 }

@@ -118,28 +118,27 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
                 const connection = new ws_1.default(wsUrl);
                 connection.onopen = () => {
-                    console.log('[ws]: Connection opened');
+                    console.log('[ws] WebSocket connection opened');
                     resolve(() => {
-                        console.log(`[WS] ${new Date().toISOString()} close called`);
                         if (!closed) {
                             connection.terminate();
                             closed = true;
                         }
                         else {
-                            console.warn('[ws]: connection.close() called more than once.');
+                            console.warn('[ws] `close()` called more than once.');
                         }
                     });
                     resolved = true;
                 };
                 connection.onerror = (error) => {
-                    console.log(`[ws]: WebSocket error: ${error}`);
+                    console.log(`[ws] WebSocket error: ${error}`);
                 };
                 connection.onclose = (event) => {
                     if (!resolved) {
-                        console.log('[ws]: CLOSED BEFORE RESOLUTION');
+                        console.warn('[ws] WebSocket connection closed before resolution');
                         reject(event);
                     }
-                    console.log(`[ws]: ${new Date().toISOString()} WebSocket closed: ${event.reason} (CODE: ${event.code})`);
+                    console.log(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`);
                 };
                 connection.onmessage = (e) => {
                     try {
@@ -152,7 +151,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                         }
                     }
                     catch (error) {
-                        console.error(`[ws]: Error parsing message data: DATA: ${e.data}, ERROR: ${error}`);
+                        console.error(`[ws] Error parsing message data: DATA: ${e.data}, ERROR: ${error}`);
                     }
                 };
             });
@@ -242,20 +241,22 @@ function deploy(sdk, branch, callbacks) {
         const deployment = yield sdk.createDeployment(branch);
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
-        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, ({ ts, line }) => console.log(`[${ts}]: ${line}`));
+        const [enqueueLog, flushLogs] = makeLogger();
+        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, enqueueLog);
         try {
-            for (const { name } of deployment.stages) {
-                (0, core_1.startGroup)(displayNewStage(name));
-                const stage = yield trackStage(sdk, name, deployment);
+            for (const { name, started_on } of deployment.stages) {
+                (0, core_1.startGroup)(started_on + '\t' + displayNewStage(name));
+                const stage = yield trackStage(sdk, name, deployment, flushLogs);
                 (0, core_1.endGroup)();
                 if (stage && (0, utils_1.isStageFailure)(stage))
                     break;
             }
-            console.log('calling close logs connection');
+            flushLogs();
             closeLogsConnection();
             return yield sdk.getDeploymentInfo(deployment.id);
         }
         catch (e) {
+            flushLogs();
             console.error(e);
             if (e instanceof Error)
                 console.log(e.stack);
@@ -265,14 +266,16 @@ function deploy(sdk, branch, callbacks) {
     });
 }
 exports.deploy = deploy;
-function trackStage(sdk, name, deployment) {
+function trackStage(sdk, name, deployment, flushLogs) {
     return __awaiter(this, void 0, void 0, function* () {
         // eslint-disable-next-line no-constant-condition
         while (true) {
+            const polledAt = new Date().toISOString();
             const info = yield sdk.getDeploymentInfo(deployment.id);
             const stage = info.stages.find((s) => s.name === name);
             if (!stage)
                 return;
+            flushLogs(stage.ended_on || polledAt);
             if ((0, utils_1.isStageComplete)(stage))
                 return stage;
             yield (0, utils_1.wait)(getPollInterval(name));
@@ -336,6 +339,24 @@ function stagePollIntervalEnvName(name) {
     return `${name.toUpperCase()}_POLL_INTERVAL`;
 }
 exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
+function makeLogger() {
+    const logs = [];
+    function enqueue(log) {
+        logs.push(log);
+    }
+    function flush(until) {
+        const currentLength = logs.length;
+        const untilDate = until ? new Date(until) : undefined;
+        const outsideWindowIndex = untilDate
+            ? // assume timestamps in chronological order
+                logs.findIndex(({ ts }) => new Date(ts) > untilDate)
+            : -1;
+        // flush all if no timestamp provided or if all timestamps less than until
+        const logUntilIndex = outsideWindowIndex === -1 ? currentLength - 1 : outsideWindowIndex;
+        logs.splice(0, logUntilIndex).forEach(({ ts, line }) => console.log(ts, line));
+    }
+    return [enqueue, flush];
+}
 
 
 /***/ }),
