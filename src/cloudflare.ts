@@ -172,7 +172,10 @@ export default function createPagesSdk({
       }
 
       connection.onclose = (event) => {
-        if (!resolved) reject(event)
+        if (!resolved) {
+          console.log('[ws]: CLOSED BEFORE RESOLUTION')
+          reject(event)
+        }
         console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`)
       }
 

@@ -125,8 +125,10 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                     console.log(`[ws]: WebSocket error: ${error}`);
                 };
                 connection.onclose = (event) => {
-                    if (!resolved)
+                    if (!resolved) {
+                        console.log('[ws]: CLOSED BEFORE RESOLUTION');
                         reject(event);
+                    }
                     console.log(`[ws]: WebSocket closed: ${event.reason} (CODE: ${event.code})`);
                 };
                 connection.onmessage = (e) => {
