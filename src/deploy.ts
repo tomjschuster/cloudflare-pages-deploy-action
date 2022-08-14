@@ -1,8 +1,9 @@
-import { debug, endGroup, error, info, startGroup, warning } from '@actions/core'
+import { endGroup, error, startGroup, warning } from '@actions/core'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
-import { Deployment, DeploymentCallbacks, DeploymentLog, Stage, StageName } from './types'
-import { isStageComplete, isStageFailure, wait } from './utils'
+import { Logger } from './logger'
+import { Deployment, DeploymentCallbacks, StageName } from './types'
+import { isPastStage, isStageComplete, isStageFailure, wait } from './utils'
 
 /**
  * Creates a CloudFlare Pages for the provided branch (or production branch if no branch provided),
@@ -12,24 +13,26 @@ import { isStageComplete, isStageFailure, wait } from './utils'
 export async function deploy(
   sdk: PagesSdk,
   branch: string | undefined,
+  logger: Logger,
   callbacks?: DeploymentCallbacks,
 ): Promise<Deployment> {
-  const deployment = await sdk.createDeployment(branch)
+  let deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
 
-  const logger = makeLogger()
   const closeLogsConnection = await sdk.getLiveLogs(deployment.id, logger.enqueue)
 
   try {
     for (const { name } of deployment.stages) {
-      const stage = await trackStage(sdk, name, deployment, logger)
+      if (callbacks?.onStageChange) await callbacks.onStageChange(name)
 
-      if (stage && isStageFailure(stage)) break
+      deployment = await trackStage(sdk, name, deployment, logger)
+
+      if (isStageFailure(deployment.latest_stage)) break
     }
 
     logger.flush()
     closeLogsConnection()
-    return await sdk.getDeploymentInfo(deployment.id)
+    return deployment
   } catch (e) {
     logger.flush()
     error(e instanceof Error ? e : JSON.stringify(e))
@@ -43,18 +46,19 @@ async function trackStage(
   name: StageName,
   deployment: Deployment,
   logger: Logger,
-): Promise<Stage | undefined> {
+): Promise<Deployment> {
   let stageHasLogs = false
   let groupStarted = false
+  let latestDeploymentInfo = deployment
+  let polledAt = new Date().toISOString()
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const polledAt = new Date().toISOString()
-    const info = await sdk.getDeploymentInfo(deployment.id)
-    const stage = info.stages.find((s) => s.name === name)
+    const stage = latestDeploymentInfo.stages.find((s) => s.name === name)
 
     if (!stage) {
       if (groupStarted) endGroup()
-      return
+      return latestDeploymentInfo
     }
 
     const logsUntil = stage.ended_on || polledAt
@@ -68,12 +72,14 @@ async function trackStage(
 
     if (groupStarted) logger.flush(logsUntil)
 
-    if (isStageComplete(stage)) {
+    if (isStageComplete(stage) || isPastStage(latestDeploymentInfo, name)) {
       if (groupStarted) endGroup()
-      return stage
+      return latestDeploymentInfo
     }
 
     await wait(getPollInterval(name))
+    polledAt = new Date().toISOString()
+    latestDeploymentInfo = await sdk.getDeploymentInfo(deployment.id)
   }
 }
 
@@ -140,43 +146,4 @@ function parseEnvPollInterval(name: StageName): number | undefined {
 
 export function stagePollIntervalEnvName(name: StageName): string {
   return `${name.toUpperCase()}_POLL_INTERVAL`
-}
-
-type EnqueueFun = (log: DeploymentLog) => void
-type PeekFn = (timestamp?: string) => number
-type FlushFn = (timestamp?: string) => number
-
-type Logger = {
-  enqueue: EnqueueFun
-  peek: PeekFn
-  flush: FlushFn
-}
-
-function makeLogger(): Logger {
-  const logs: DeploymentLog[] = []
-
-  function enqueue(log: DeploymentLog): void {
-    logs.push(log)
-  }
-
-  function peek(until?: string): number {
-    const currentLength = logs.length
-    const untilDate = until ? new Date(until) : undefined
-
-    const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1
-
-    return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex
-  }
-
-  function flush(until?: string): number {
-    const count = peek(until)
-
-    debug(`[deploy.ts] flushing ${count} of ${logs.length} logs`)
-    logs.splice(0, count).forEach(({ line }) => info(line))
-    debug(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`)
-
-    return count
-  }
-
-  return { enqueue, peek, flush }
 }

@@ -6,10 +6,7 @@ import { deploy } from '../src/deploy'
 import { DeployHookDeleteError, DeploymentError } from '../src/errors'
 import { run } from '../src/run'
 import { DeploymentCallbacks } from '../src/types'
-import { completedDeployment } from '../__fixtures__/completedDeployment'
-import { failedLiveDeployment } from '../__fixtures__/failedDeployment'
-import { initialLiveDeployment as deployment } from '../__fixtures__/liveDeployment'
-import { project } from '../__fixtures__/project'
+import { completedDeployment, failedDeployment, project } from './mocks'
 
 jest.mock('@actions/core', () => ({
   error: jest.fn(),
@@ -80,7 +77,12 @@ describe('run', () => {
 
     await run()
 
-    expect(deploy).toHaveBeenCalledWith(expect.any(Object), undefined, undefined)
+    expect(deploy).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      expect.any(Object),
+      undefined,
+    )
   })
 
   it('calls deploy with a branch when branch is set', async () => {
@@ -90,7 +92,7 @@ describe('run', () => {
 
     await run()
 
-    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo', undefined)
+    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo', expect.any(Object), undefined)
   })
 
   it('calls deploy with branch from context when preview is set', async () => {
@@ -103,7 +105,7 @@ describe('run', () => {
 
     await run()
 
-    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo', undefined)
+    expect(deploy).toHaveBeenCalledWith(expect.any(Object), 'foo', expect.any(Object), undefined)
   })
 
   it('sets outputs with the created deployment', async () => {
@@ -117,7 +119,7 @@ describe('run', () => {
   })
 
   it('sets the job state to failed after a deploy failure', async () => {
-    ;(deploy as jest.Mock).mockResolvedValueOnce(failedLiveDeployment)
+    ;(deploy as jest.Mock).mockResolvedValueOnce(failedDeployment)
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
     await run()
@@ -224,7 +226,9 @@ describe('run', () => {
   })
 
   it('sets the job state to failed and logs a message when deployment starts but does not complete', async () => {
-    ;(deploy as jest.Mock).mockRejectedValue(new DeploymentError(new Error('foo'), deployment))
+    ;(deploy as jest.Mock).mockRejectedValue(
+      new DeploymentError(new Error('foo'), failedDeployment),
+    )
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
 
     await run()
@@ -263,7 +267,12 @@ describe('run', () => {
 
     await run()
 
-    expect(deploy).toHaveBeenCalledWith(expect.any(Object), undefined, expect.any(Object))
+    expect(deploy).toHaveBeenCalledWith(
+      expect.any(Object),
+      undefined,
+      expect.any(Object),
+      expect.any(Object),
+    )
   })
 
   it('marks a GitHub deploy as success', async () => {
@@ -279,7 +288,7 @@ describe('run', () => {
   })
 
   it('marks a GitHub deploy as failed after a failed build', async () => {
-    ;(deploy as jest.Mock).mockResolvedValueOnce(failedLiveDeployment)
+    ;(deploy as jest.Mock).mockResolvedValueOnce(failedDeployment)
     // branch
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
     ;(getInput as jest.Mock).mockReturnValueOnce(undefined)
@@ -291,7 +300,9 @@ describe('run', () => {
   })
 
   it('marks a GitHub deploy as failed after an error', async () => {
-    ;(deploy as jest.Mock).mockRejectedValue(new DeploymentError(new Error('foo'), deployment))
+    ;(deploy as jest.Mock).mockRejectedValue(
+      new DeploymentError(new Error('foo'), failedDeployment),
+    )
     // branch
     ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
     ;(getInput as jest.Mock).mockReturnValueOnce(undefined)

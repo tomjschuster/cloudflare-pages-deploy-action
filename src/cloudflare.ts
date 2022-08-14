@@ -9,7 +9,6 @@ import {
   DeployHookResult,
   Deployment,
   DeploymentLog,
-  DeploymentLogsResult,
   Project,
 } from './types'
 
@@ -26,11 +25,6 @@ export type PagesSdk = {
   getProject(): Promise<Project>
   createDeployment(branch?: string): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
-  getDeploymentLogs(
-    deploymentId: string,
-    pageSize: number,
-    page: number,
-  ): Promise<DeploymentLogsResult>
   getLiveLogs(deploymentId: string, onLog: (log: DeploymentLog) => void): Promise<() => void>
 }
 
@@ -46,6 +40,7 @@ export default function createPagesSdk({
 }: PagesSdkConfig): PagesSdk {
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
     debug(`[PagesSdk] Request: ${method} ${path}`)
+
     const response = await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
@@ -54,6 +49,8 @@ export default function createPagesSdk({
       },
       body,
     })
+
+    debug(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`)
 
     if (!response.ok) {
       const message = await formatApiErrors(method, path, response)
@@ -67,8 +64,6 @@ export default function createPagesSdk({
       return Promise.reject(new Error(message))
     }
 
-    debug(`[PagesSdk] ${method} ${path} [${response.status}: ${response.statusText}]`)
-
     return result.result
   }
 
@@ -78,7 +73,6 @@ export default function createPagesSdk({
 
   function createDeployment(branch?: string): Promise<Deployment> {
     if (!branch) {
-      info('')
       info(`Creating a deployment for the production branch of ${projectName}.\n`)
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
@@ -88,20 +82,6 @@ export default function createPagesSdk({
 
   function getDeploymentInfo(id: string): Promise<Deployment> {
     return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`))
-  }
-
-  function getDeploymentLogs(
-    id: string,
-    pageSize: number,
-    page: number,
-  ): Promise<DeploymentLogsResult> {
-    return fetchCf(
-      projectPath(
-        accountId,
-        projectName,
-        `/deployments/${id}/history/logs?$page_size=${pageSize}page=${page}`,
-      ),
-    )
   }
 
   /**
@@ -118,7 +98,6 @@ export default function createPagesSdk({
     // Cloudflare API supports triggering production deployement without a webhook
     if (branch === project.source.config.production_branch) return await createDeployment()
 
-    info('')
     info(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
 
     // UNDOCUMENTED ENDPOINT
@@ -221,7 +200,6 @@ export default function createPagesSdk({
     getProject,
     createDeployment,
     getDeploymentInfo,
-    getDeploymentLogs,
     getLiveLogs,
   }
 }

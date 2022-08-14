@@ -14098,6 +14098,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             },
             body,
         });
+        (0, core_1.debug)(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`);
         if (!response.ok) {
             const message = await (0, errors_1.formatApiErrors)(method, path, response);
             return Promise.reject(new Error(message));
@@ -14107,7 +14108,6 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             const message = await (0, errors_1.formatApiErrors)(method, path, response);
             return Promise.reject(new Error(message));
         }
-        (0, core_1.debug)(`[PagesSdk] ${method} ${path} [${response.status}: ${response.statusText}]`);
         return result.result;
     }
     function getProject() {
@@ -14115,7 +14115,6 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     }
     function createDeployment(branch) {
         if (!branch) {
-            (0, core_1.info)('');
             (0, core_1.info)(`Creating a deployment for the production branch of ${projectName}.\n`);
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
         }
@@ -14123,9 +14122,6 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     }
     function getDeploymentInfo(id) {
         return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`));
-    }
-    function getDeploymentLogs(id, pageSize, page) {
-        return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/logs?$page_size=${pageSize}page=${page}`));
     }
     /**
      * Creates a Pages deployment for any branch by creating, triggering, then deleting a deploy hook.
@@ -14140,7 +14136,6 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
         // Cloudflare API supports triggering production deployement without a webhook
         if (branch === project.source.config.production_branch)
             return await createDeployment();
-        (0, core_1.info)('');
         (0, core_1.info)(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
         // UNDOCUMENTED ENDPOINT
         function createDeployHook(name, branch) {
@@ -14223,7 +14218,6 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
         getProject,
         createDeployment,
         getDeploymentInfo,
-        getDeploymentLogs,
         getLiveLogs,
     };
 }
@@ -14277,21 +14271,22 @@ const utils_1 = __nccwpck_require__(1314);
  * Creates a CloudFlare Pages for the provided branch (or production branch if no branch provided),
  * logging output for each stage and returning the deployment on complete.
  * */
-async function deploy(sdk, branch, callbacks) {
-    const deployment = await sdk.createDeployment(branch);
+async function deploy(sdk, branch, logger, callbacks) {
+    let deployment = await sdk.createDeployment(branch);
     if (callbacks?.onStart)
         await callbacks.onStart(deployment);
-    const logger = makeLogger();
     const closeLogsConnection = await sdk.getLiveLogs(deployment.id, logger.enqueue);
     try {
         for (const { name } of deployment.stages) {
-            const stage = await trackStage(sdk, name, deployment, logger);
-            if (stage && (0, utils_1.isStageFailure)(stage))
+            if (callbacks?.onStageChange)
+                await callbacks.onStageChange(name);
+            deployment = await trackStage(sdk, name, deployment, logger);
+            if ((0, utils_1.isStageFailure)(deployment.latest_stage))
                 break;
         }
         logger.flush();
         closeLogsConnection();
-        return await sdk.getDeploymentInfo(deployment.id);
+        return deployment;
     }
     catch (e) {
         logger.flush();
@@ -14304,15 +14299,15 @@ exports.deploy = deploy;
 async function trackStage(sdk, name, deployment, logger) {
     let stageHasLogs = false;
     let groupStarted = false;
+    let latestDeploymentInfo = deployment;
+    let polledAt = new Date().toISOString();
     // eslint-disable-next-line no-constant-condition
     while (true) {
-        const polledAt = new Date().toISOString();
-        const info = await sdk.getDeploymentInfo(deployment.id);
-        const stage = info.stages.find((s) => s.name === name);
+        const stage = latestDeploymentInfo.stages.find((s) => s.name === name);
         if (!stage) {
             if (groupStarted)
                 (0, core_1.endGroup)();
-            return;
+            return latestDeploymentInfo;
         }
         const logsUntil = stage.ended_on || polledAt;
         if (!stageHasLogs && logger.peek(logsUntil) > 0)
@@ -14323,12 +14318,14 @@ async function trackStage(sdk, name, deployment, logger) {
         }
         if (groupStarted)
             logger.flush(logsUntil);
-        if ((0, utils_1.isStageComplete)(stage)) {
+        if ((0, utils_1.isStageComplete)(stage) || (0, utils_1.isPastStage)(latestDeploymentInfo, name)) {
             if (groupStarted)
                 (0, core_1.endGroup)();
-            return stage;
+            return latestDeploymentInfo;
         }
         await (0, utils_1.wait)(getPollInterval(name));
+        polledAt = new Date().toISOString();
+        latestDeploymentInfo = await sdk.getDeploymentInfo(deployment.id);
     }
 }
 /**
@@ -14387,26 +14384,6 @@ function stagePollIntervalEnvName(name) {
     return `${name.toUpperCase()}_POLL_INTERVAL`;
 }
 exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
-function makeLogger() {
-    const logs = [];
-    function enqueue(log) {
-        logs.push(log);
-    }
-    function peek(until) {
-        const currentLength = logs.length;
-        const untilDate = until ? new Date(until) : undefined;
-        const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1;
-        return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex;
-    }
-    function flush(until) {
-        const count = peek(until);
-        (0, core_1.debug)(`[deploy.ts] flushing ${count} of ${logs.length} logs`);
-        logs.splice(0, count).forEach(({ line }) => (0, core_1.info)(line));
-        (0, core_1.debug)(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`);
-        return count;
-    }
-    return { enqueue, peek, flush };
-}
 
 
 /***/ }),
@@ -14583,6 +14560,41 @@ function githubDeployStateFromStage(name) {
 
 /***/ }),
 
+/***/ 4636:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createLogger = void 0;
+const core_1 = __nccwpck_require__(2186);
+function createLogger() {
+    const logs = [];
+    function enqueue(log) {
+        logs.push(log);
+    }
+    function peek(until) {
+        const currentLength = logs.length;
+        const untilDate = until ? new Date(until) : undefined;
+        const outsideWindowIndex = untilDate
+            ? logs.findIndex(({ ts }) => new Date(ts) >= untilDate)
+            : -1;
+        return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex;
+    }
+    function flush(until) {
+        const count = peek(until);
+        (0, core_1.debug)(`[deploy.ts] flushing ${count} of ${logs.length} logs`);
+        logs.splice(0, count).forEach(({ line }) => (0, core_1.info)(line));
+        (0, core_1.debug)(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`);
+        return count;
+    }
+    return { enqueue, peek, flush };
+}
+exports.createLogger = createLogger;
+
+
+/***/ }),
+
 /***/ 7764:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -14600,6 +14612,7 @@ const dashboard_1 = __nccwpck_require__(7217);
 const deploy_1 = __nccwpck_require__(5930);
 const errors_1 = __nccwpck_require__(6976);
 const github_2 = __nccwpck_require__(978);
+const logger_1 = __nccwpck_require__(4636);
 const utils_1 = __nccwpck_require__(1314);
 async function run() {
     let deployment;
@@ -14611,7 +14624,7 @@ async function run() {
         return await fail(branchError);
     const deployBranch = getBranch(production, preview, branch);
     try {
-        deployment = await (0, deploy_1.deploy)(sdk, deployBranch, githubCallbacks);
+        deployment = await (0, deploy_1.deploy)(sdk, deployBranch, (0, logger_1.createLogger)(), githubCallbacks);
         setOutputFromDeployment(deployment);
     }
     catch (error) {
@@ -14748,7 +14761,7 @@ function projectProductionBranch(project) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = exports.isStageComplete = exports.isStageFailure = exports.isStageSuccess = exports.isQueuedStage = void 0;
+exports.wait = exports.isPastStage = exports.isStageComplete = exports.isStageFailure = exports.isStageSuccess = exports.isQueuedStage = void 0;
 function isQueuedStage(stage) {
     return stage.name === 'queued';
 }
@@ -14765,6 +14778,12 @@ function isStageComplete(stage) {
     return stage.status === 'success' || stage.status === 'failure';
 }
 exports.isStageComplete = isStageComplete;
+function isPastStage({ stages, latest_stage }, name) {
+    const stageIndex = stages.findIndex((s) => s.name === name);
+    const latestStageIndex = stages.findIndex((s) => s.name === latest_stage.name);
+    return latestStageIndex > stageIndex;
+}
+exports.isPastStage = isPastStage;
 function wait(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }

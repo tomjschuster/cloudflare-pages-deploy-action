@@ -5,6 +5,7 @@ import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './
 import { deploy } from './deploy'
 import { DeployHookDeleteError, DeploymentError } from './errors'
 import { createGithubCloudfrontDeploymentCallbacks } from './github'
+import { createLogger } from './logger'
 import { Deployment, DeploymentCallbacks, Project, Stage } from './types'
 import { isStageSuccess } from './utils'
 
@@ -23,7 +24,7 @@ export async function run(): Promise<void> {
   const deployBranch = getBranch(production, preview, branch)
 
   try {
-    deployment = await deploy(sdk, deployBranch, githubCallbacks)
+    deployment = await deploy(sdk, deployBranch, createLogger(), githubCallbacks)
     setOutputFromDeployment(deployment)
   } catch (error) {
     logExtraErrorMessages(accountId, projectName, error, deployment)
