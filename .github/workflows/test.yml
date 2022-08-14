@@ -14,10 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: |
-          npm install
-      - run: |
-          npm run all
+      - uses: actions/setup-node@v3.4.1
+        with:
+          node-version: 16.x
+
+      - run: npm ci
+      - run: npm run all
       - name: Report coverage
         uses: coverallsapp/github-action@master
         with:
@@ -28,6 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v3.4.1
+        with:
+          node-version: 16.x
+
       - name: Test Production
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: ./
