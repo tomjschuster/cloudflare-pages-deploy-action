@@ -6,15 +6,6 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -30,29 +21,27 @@ const CF_BASE_URL = 'https://api.cloudflare.com/client/v4';
  * a resolved/rejected Promise.
  */
 function createPagesSdk({ accountId, apiKey, email, projectName, }) {
-    function fetchCf(path, method = 'GET', body) {
-        return __awaiter(this, void 0, void 0, function* () {
-            (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
-            const response = yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
-                method,
-                headers: {
-                    'X-Auth-Key': apiKey,
-                    'X-Auth-Email': email,
-                },
-                body,
-            });
-            if (!response.ok) {
-                const message = yield (0, errors_1.formatApiErrors)(method, path, response);
-                return Promise.reject(new Error(message));
-            }
-            const result = yield response.json();
-            if (result.success === false) {
-                const message = yield (0, errors_1.formatApiErrors)(method, path, response);
-                return Promise.reject(new Error(message));
-            }
-            (0, core_1.debug)(`[PagesSdk] ${method} ${path} [${response.status}: ${response.statusText}]`);
-            return result.result;
+    async function fetchCf(path, method = 'GET', body) {
+        (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
+        const response = await (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
+            method,
+            headers: {
+                'X-Auth-Key': apiKey,
+                'X-Auth-Email': email,
+            },
+            body,
         });
+        if (!response.ok) {
+            const message = await (0, errors_1.formatApiErrors)(method, path, response);
+            return Promise.reject(new Error(message));
+        }
+        const result = await response.json();
+        if (result.success === false) {
+            const message = await (0, errors_1.formatApiErrors)(method, path, response);
+            return Promise.reject(new Error(message));
+        }
+        (0, core_1.debug)(`[PagesSdk] ${method} ${path} [${response.status}: ${response.statusText}]`);
+        return result.result;
     }
     function getProject() {
         return fetchCf(projectPath(accountId, projectName, ''));
@@ -79,92 +68,88 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
      * Create/Delete Deploy Hook endpoints are not documented, but are observable from the Pages dashboard
      * when creating/deleting hooks.
      **/
-    function createBranchDeploymentUsingDeployHook(branch) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const project = yield getProject();
-            // Cloudflare API supports triggering production deployement without a webhook
-            if (branch === project.source.config.production_branch)
-                return yield createDeployment();
-            (0, core_1.info)('');
-            (0, core_1.info)(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
-            // UNDOCUMENTED ENDPOINT
-            function createDeployHook(name, branch) {
-                return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
+    async function createBranchDeploymentUsingDeployHook(branch) {
+        const project = await getProject();
+        // Cloudflare API supports triggering production deployement without a webhook
+        if (branch === project.source.config.production_branch)
+            return await createDeployment();
+        (0, core_1.info)('');
+        (0, core_1.info)(`Creating a deployment for branch "${branch}" of ${projectName}.\n`);
+        // UNDOCUMENTED ENDPOINT
+        function createDeployHook(name, branch) {
+            return fetchCf(projectPath(accountId, projectName, '/deploy_hooks'), 'POST', JSON.stringify({ name, branch }));
+        }
+        // UNDOCUMENTED ENDPOINT
+        function deleteDeployHook(id) {
+            return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
+        }
+        function executeDeployHook(id) {
+            return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST');
+        }
+        const name = `github-actions-temp-${normalizedIsoString()}-${(0, nanoid_1.nanoid)()}`;
+        const { hook_id } = await createDeployHook(name, branch);
+        let deletedHook = false;
+        try {
+            const { id: deploymentId } = await executeDeployHook(hook_id);
+            // We only need the webhook to trigger a onetime deployment for the given branch
+            await deleteDeployHook(hook_id);
+            deletedHook = true;
+            return await getDeploymentInfo(deploymentId);
+        }
+        catch (e) {
+            // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
+            // so they can delete it manually through the dashboard
+            if (!deletedHook) {
+                const deployHookDeleteError = new errors_1.DeployHookDeleteError(e, name);
+                await deleteDeployHook(hook_id).catch(() => Promise.reject(deployHookDeleteError));
             }
-            // UNDOCUMENTED ENDPOINT
-            function deleteDeployHook(id) {
-                return fetchCf(projectPath(accountId, projectName, `/deploy_hooks/${id}`), 'DELETE');
-            }
-            function executeDeployHook(id) {
-                return fetchCf(`/pages/webhooks/deploy_hooks/${id}`, 'POST');
-            }
-            const name = `github-actions-temp-${normalizedIsoString()}-${(0, nanoid_1.nanoid)()}`;
-            const { hook_id } = yield createDeployHook(name, branch);
-            let deletedHook = false;
-            try {
-                const { id: deploymentId } = yield executeDeployHook(hook_id);
-                // We only need the webhook to trigger a onetime deployment for the given branch
-                yield deleteDeployHook(hook_id);
-                deletedHook = true;
-                return yield getDeploymentInfo(deploymentId);
-            }
-            catch (e) {
-                // If we faild to delete the hook, attempt to delete it, and let user know if delete fails
-                // so they can delete it manually through the dashboard
-                if (!deletedHook) {
-                    const deployHookDeleteError = new errors_1.DeployHookDeleteError(e, name);
-                    yield deleteDeployHook(hook_id).catch(() => Promise.reject(deployHookDeleteError));
-                }
-                throw e;
-            }
-        });
+            throw e;
+        }
     }
-    function getLiveLogs(id, onLog) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const { jwt } = yield fetchCf(projectPath(accountId, projectName, `/deployments/${id}/live`));
-            return new Promise((resolve, reject) => {
-                let resolved = false;
-                let closed = false;
-                const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
-                const connection = new ws_1.default(wsUrl);
-                connection.onopen = () => {
-                    (0, core_1.debug)('[ws] WebSocket connection opened');
-                    resolve(() => {
-                        if (!closed) {
-                            connection.terminate();
-                            closed = true;
-                        }
-                        else {
-                            (0, core_1.debug)('[ws] `close()` called more than once.');
-                        }
-                    });
-                    resolved = true;
-                };
-                connection.onerror = (e) => {
-                    (0, core_1.debug)(`[ws] WebSocket error: ${e}`);
-                };
-                connection.onclose = (event) => {
-                    if (!resolved) {
-                        (0, core_1.warning)('[ws] WebSocket connection closed before resolution');
-                        reject(event);
+    async function getLiveLogs(id, onLog) {
+        const { jwt } = await fetchCf(projectPath(accountId, projectName, `/deployments/${id}/live`));
+        return new Promise((resolve, reject) => {
+            let resolved = false;
+            let closed = false;
+            const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`;
+            const connection = new ws_1.default(wsUrl);
+            connection.onopen = () => {
+                (0, core_1.debug)('[ws] WebSocket connection opened');
+                resolve(() => {
+                    if (!closed) {
+                        connection.terminate();
+                        closed = true;
                     }
-                    (0, core_1.debug)(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`);
-                };
-                connection.onmessage = (evt) => {
-                    try {
-                        const data = typeof evt.data === 'string' ? JSON.parse(evt.data) : undefined;
-                        if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
-                            onLog(data);
-                        }
-                        else {
-                            (0, core_1.warning)(`[ws] Unexpected data format:\n${JSON.stringify(data, undefined, 2)}`);
-                        }
+                    else {
+                        (0, core_1.debug)('[ws] `close()` called more than once.');
                     }
-                    catch (e) {
-                        (0, core_1.error)(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`);
+                });
+                resolved = true;
+            };
+            connection.onerror = (e) => {
+                (0, core_1.debug)(`[ws] WebSocket error: ${e}`);
+            };
+            connection.onclose = (event) => {
+                if (!resolved) {
+                    (0, core_1.warning)('[ws] WebSocket connection closed before resolution');
+                    reject(event);
+                }
+                (0, core_1.debug)(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`);
+            };
+            connection.onmessage = (evt) => {
+                try {
+                    const data = typeof evt.data === 'string' ? JSON.parse(evt.data) : undefined;
+                    if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
+                        onLog(data);
                     }
-                };
-            });
+                    else {
+                        (0, core_1.warning)(`[ws] Unexpected data format:\n${JSON.stringify(data, undefined, 2)}`);
+                    }
+                }
+                catch (e) {
+                    (0, core_1.error)(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`);
+                }
+            };
         });
     }
     return {
@@ -212,19 +197,10 @@ function baseDashboardUrl(accountId, projectName) {
 /***/ }),
 
 /***/ 7538:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
@@ -234,63 +210,59 @@ const utils_1 = __nccwpck_require__(918);
  * Creates a CloudFlare Pages for the provided branch (or production branch if no branch provided),
  * logging output for each stage and returning the deployment on complete.
  * */
-function deploy(sdk, branch, callbacks) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const deployment = yield sdk.createDeployment(branch);
-        if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
-            yield callbacks.onStart(deployment);
-        const logger = makeLogger();
-        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, logger.enqueue);
-        try {
-            for (const { name } of deployment.stages) {
-                const stage = yield trackStage(sdk, name, deployment, logger);
-                if (stage && (0, utils_1.isStageFailure)(stage))
-                    break;
-            }
-            logger.flush();
-            closeLogsConnection();
-            return yield sdk.getDeploymentInfo(deployment.id);
+async function deploy(sdk, branch, callbacks) {
+    const deployment = await sdk.createDeployment(branch);
+    if (callbacks?.onStart)
+        await callbacks.onStart(deployment);
+    const logger = makeLogger();
+    const closeLogsConnection = await sdk.getLiveLogs(deployment.id, logger.enqueue);
+    try {
+        for (const { name } of deployment.stages) {
+            const stage = await trackStage(sdk, name, deployment, logger);
+            if (stage && (0, utils_1.isStageFailure)(stage))
+                break;
         }
-        catch (e) {
-            logger.flush();
-            (0, core_1.error)(e instanceof Error ? e : JSON.stringify(e));
-            closeLogsConnection();
-            throw new errors_1.DeploymentError(e, deployment);
-        }
-    });
+        logger.flush();
+        closeLogsConnection();
+        return await sdk.getDeploymentInfo(deployment.id);
+    }
+    catch (e) {
+        logger.flush();
+        (0, core_1.error)(e instanceof Error ? e : JSON.stringify(e));
+        closeLogsConnection();
+        throw new errors_1.DeploymentError(e, deployment);
+    }
 }
 exports.deploy = deploy;
-function trackStage(sdk, name, deployment, logger) {
-    return __awaiter(this, void 0, void 0, function* () {
-        let stageHasLogs = false;
-        let groupStarted = false;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            const polledAt = new Date().toISOString();
-            const info = yield sdk.getDeploymentInfo(deployment.id);
-            const stage = info.stages.find((s) => s.name === name);
-            if (!stage) {
-                if (groupStarted)
-                    (0, core_1.endGroup)();
-                return;
-            }
-            const logsUntil = stage.ended_on || polledAt;
-            if (!stageHasLogs && logger.peek(logsUntil) > 0)
-                stageHasLogs = true;
-            if (!groupStarted && stage.started_on && stageHasLogs) {
-                (0, core_1.startGroup)(displayNewStage(name));
-                groupStarted = true;
-            }
+async function trackStage(sdk, name, deployment, logger) {
+    let stageHasLogs = false;
+    let groupStarted = false;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const polledAt = new Date().toISOString();
+        const info = await sdk.getDeploymentInfo(deployment.id);
+        const stage = info.stages.find((s) => s.name === name);
+        if (!stage) {
             if (groupStarted)
-                logger.flush(logsUntil);
-            if ((0, utils_1.isStageComplete)(stage)) {
-                if (groupStarted)
-                    (0, core_1.endGroup)();
-                return stage;
-            }
-            yield (0, utils_1.wait)(getPollInterval(name));
+                (0, core_1.endGroup)();
+            return;
         }
-    });
+        const logsUntil = stage.ended_on || polledAt;
+        if (!stageHasLogs && logger.peek(logsUntil) > 0)
+            stageHasLogs = true;
+        if (!groupStarted && stage.started_on && stageHasLogs) {
+            (0, core_1.startGroup)(displayNewStage(name));
+            groupStarted = true;
+        }
+        if (groupStarted)
+            logger.flush(logsUntil);
+        if ((0, utils_1.isStageComplete)(stage)) {
+            if (groupStarted)
+                (0, core_1.endGroup)();
+            return stage;
+        }
+        await (0, utils_1.wait)(getPollInterval(name));
+    }
 }
 /**
  * Returns visually friendly label for stage log group. In practice this is title case,
@@ -316,7 +288,6 @@ function displayNewStage(stageName) {
 // check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
 // (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
 function getPollInterval(name) {
-    var _a;
     switch (name) {
         case 'queued':
         case 'initialize':
@@ -324,9 +295,9 @@ function getPollInterval(name) {
         case 'clone_repo':
         case 'deploy':
         default:
-            return ((_a = parseEnvPollInterval(name)) !== null && _a !== void 0 ? _a : 
-            /* istanbul ignore next */
-            2500);
+            return (parseEnvPollInterval(name) ??
+                /* istanbul ignore next */
+                2500);
     }
 }
 /** Parses stage specific poll times from env (e.g. `$BUILD_POLL_INTERVAL`), mostly for testing */
@@ -374,42 +345,31 @@ function makeLogger() {
 /***/ }),
 
 /***/ 9292:
-/***/ (function(__unused_webpack_module, exports) {
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GithubApiError = exports.DeployHookDeleteError = exports.DeploymentError = exports.formatApiErrors = void 0;
-function formatApiErrors(method, path, res) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const text = `${method} ${path} [${res.status}: ${res.statusText}]`;
-        try {
-            const json = yield res.json();
-            if (json &&
-                typeof json === 'object' &&
-                typeof Array.isArray(json.errors) &&
-                json.errors.length > 0) {
-                const errors = json.errors;
-                const messages = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
-                return `${text}\n${messages}`;
-            }
-            else {
-                return `${text}\n${JSON.stringify(json, undefined, 2)}`;
-            }
+async function formatApiErrors(method, path, res) {
+    const text = `${method} ${path} [${res.status}: ${res.statusText}]`;
+    try {
+        const json = await res.json();
+        if (json &&
+            typeof json === 'object' &&
+            typeof Array.isArray(json.errors) &&
+            json.errors.length > 0) {
+            const errors = json.errors;
+            const messages = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
+            return `${text}\n${messages}`;
         }
-        catch (_e) {
-            return text;
+        else {
+            return `${text}\n${JSON.stringify(json, undefined, 2)}`;
         }
-    });
+    }
+    catch (_e) {
+        return text;
+    }
 }
 exports.formatApiErrors = formatApiErrors;
 class DeploymentError extends Error {
@@ -460,19 +420,10 @@ exports.GithubApiError = GithubApiError;
 /***/ }),
 
 /***/ 5928:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.createGithubCloudfrontDeploymentCallbacks = void 0;
 const github_1 = __nccwpck_require__(5438);
@@ -482,33 +433,25 @@ function createGithubCloudfrontDeploymentCallbacks(accountId, token) {
     const octokit = (0, github_1.getOctokit)(token);
     let id;
     let deployment;
-    function deploy(newDeployment) {
-        return __awaiter(this, void 0, void 0, function* () {
-            id = yield createGitHubDeployment(octokit, accountId, newDeployment);
-            deployment = newDeployment;
-        });
+    async function deploy(newDeployment) {
+        id = await createGitHubDeployment(octokit, accountId, newDeployment);
+        deployment = newDeployment;
     }
-    function updateState(stageName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const state = githubDeployStateFromStage(stageName);
-            if (!state || !id || !deployment)
-                return;
-            yield createGitHubDeploymentStatus(octokit, accountId, id, state, deployment);
-        });
+    async function updateState(stageName) {
+        const state = githubDeployStateFromStage(stageName);
+        if (!state || !id || !deployment)
+            return;
+        await createGitHubDeploymentStatus(octokit, accountId, id, state, deployment);
     }
-    function setFailure() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!id || !deployment)
-                return;
-            yield createGitHubDeploymentStatus(octokit, accountId, id, 'failure', deployment);
-        });
+    async function setFailure() {
+        if (!id || !deployment)
+            return;
+        await createGitHubDeploymentStatus(octokit, accountId, id, 'failure', deployment);
     }
-    function setSuccess() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!id || !deployment)
-                return;
-            yield createGitHubDeploymentStatus(octokit, accountId, id, 'success', deployment);
-        });
+    async function setSuccess() {
+        if (!id || !deployment)
+            return;
+        await createGitHubDeploymentStatus(octokit, accountId, id, 'success', deployment);
     }
     return {
         onStart: deploy,
@@ -520,12 +463,22 @@ function createGithubCloudfrontDeploymentCallbacks(accountId, token) {
 exports.createGithubCloudfrontDeploymentCallbacks = createGithubCloudfrontDeploymentCallbacks;
 function createGitHubDeployment(octokit, accountId, cfDeployment) {
     return octokit.rest.repos
-        .createDeployment(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { required_contexts: [], transient_environment: cfDeployment.environment !== 'production', auto_merge: false }))
+        .createDeployment({
+        ...cfDeploymentParams(accountId, cfDeployment),
+        required_contexts: [],
+        transient_environment: cfDeployment.environment !== 'production',
+        auto_merge: false,
+    })
         .then(resolveDeploymentId);
 }
 function createGitHubDeploymentStatus(octokit, accountId, id, state, cfDeployment) {
     return octokit.rest.repos
-        .createDeploymentStatus(Object.assign(Object.assign({}, cfDeploymentParams(accountId, cfDeployment)), { deployment_id: id, state, environment_url: state === 'success' ? cfDeployment.url : undefined }))
+        .createDeploymentStatus({
+        ...cfDeploymentParams(accountId, cfDeployment),
+        deployment_id: id,
+        state,
+        environment_url: state === 'success' ? cfDeployment.url : undefined,
+    })
         .then(resolveDeploymentId);
 }
 function resolveDeploymentId(result) {
@@ -568,15 +521,6 @@ function githubDeployStateFromStage(name) {
 
 "use strict";
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -590,30 +534,28 @@ const deploy_1 = __nccwpck_require__(7538);
 const errors_1 = __nccwpck_require__(9292);
 const github_2 = __nccwpck_require__(5928);
 const utils_1 = __nccwpck_require__(918);
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        let deployment;
-        const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } = getInputs();
-        const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
-        const githubCallbacks = getDeploymentCallbacks(accountId, githubToken);
-        const branchError = yield validateBranch(sdk, production, preview, branch);
-        if (branchError)
-            return yield fail(branchError);
-        const deployBranch = getBranch(production, preview, branch);
-        try {
-            deployment = yield (0, deploy_1.deploy)(sdk, deployBranch, githubCallbacks);
-            setOutputFromDeployment(deployment);
-        }
-        catch (error) {
-            logExtraErrorMessages(accountId, projectName, error, deployment);
-            return yield fail(error, githubCallbacks === null || githubCallbacks === void 0 ? void 0 : githubCallbacks.onFailure);
-        }
-        if (!(0, utils_1.isStageSuccess)(deployment.latest_stage)) {
-            return fail(failedDeployMessage(deployment.latest_stage), githubCallbacks === null || githubCallbacks === void 0 ? void 0 : githubCallbacks.onFailure);
-        }
-        yield (githubCallbacks === null || githubCallbacks === void 0 ? void 0 : githubCallbacks.onSuccess());
-        logSuccess(deployment);
-    });
+async function run() {
+    let deployment;
+    const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } = getInputs();
+    const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
+    const githubCallbacks = getDeploymentCallbacks(accountId, githubToken);
+    const branchError = await validateBranch(sdk, production, preview, branch);
+    if (branchError)
+        return await fail(branchError);
+    const deployBranch = getBranch(production, preview, branch);
+    try {
+        deployment = await (0, deploy_1.deploy)(sdk, deployBranch, githubCallbacks);
+        setOutputFromDeployment(deployment);
+    }
+    catch (error) {
+        logExtraErrorMessages(accountId, projectName, error, deployment);
+        return await fail(error, githubCallbacks?.onFailure);
+    }
+    if (!(0, utils_1.isStageSuccess)(deployment.latest_stage)) {
+        return fail(failedDeployMessage(deployment.latest_stage), githubCallbacks?.onFailure);
+    }
+    await githubCallbacks?.onSuccess();
+    logSuccess(deployment);
 }
 exports.run = run;
 function getInputs() {
@@ -628,34 +570,32 @@ function getInputs() {
         githubToken: (0, core_1.getInput)('github-token'),
     };
 }
-function validateBranch(sdk, production, preview, branch) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const inputCount = [production, preview, branch].filter((x) => x).length;
-        if (inputCount > 1) {
-            return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.';
+async function validateBranch(sdk, production, preview, branch) {
+    const inputCount = [production, preview, branch].filter((x) => x).length;
+    if (inputCount > 1) {
+        return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.';
+    }
+    if (inputCount === 0) {
+        return 'Must provide exactly one of the following inputs: "production", "branch"';
+    }
+    if (branch)
+        return validateBranchName(branch);
+    if (production)
+        return;
+    if (preview) {
+        if (!currentBranch()) {
+            return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).';
         }
-        if (inputCount === 0) {
-            return 'Must provide exactly one of the following inputs: "production", "branch"';
+        const project = await sdk.getProject();
+        const repo = currentRepo();
+        const pRepo = projectRepo(project);
+        if (repo !== pRepo) {
+            return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`;
         }
-        if (branch)
-            return validateBranchName(branch);
-        if (production)
-            return;
-        if (preview) {
-            if (!currentBranch()) {
-                return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).';
-            }
-            const project = yield sdk.getProject();
-            const repo = currentRepo();
-            const pRepo = projectRepo(project);
-            if (repo !== pRepo) {
-                return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`;
-            }
-            if (currentBranch() === projectProductionBranch(project)) {
-                return '`preview` argument can not be used on the production branch.';
-            }
+        if (currentBranch() === projectProductionBranch(project)) {
+            return '`preview` argument can not be used on the production branch.';
         }
-    });
+    }
 }
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
 function validateBranchName(branch) {
@@ -690,14 +630,12 @@ function logSuccess({ project_name, url, latest_stage }) {
     (0, core_1.info)(`URL: ${url}`);
 }
 // `setFailed` doesn't print stack trace. This allow to exit gracefully with debug info.
-function fail(e_, beforeExit) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const e = e_ instanceof Error ? e_ : new Error(`${e_}`);
-        (0, core_1.setFailed)(e);
-        (0, core_1.error)(`${e.message}\n${e.stack}`);
-        if (beforeExit)
-            yield beforeExit();
-    });
+async function fail(e_, beforeExit) {
+    const e = e_ instanceof Error ? e_ : new Error(`${e_}`);
+    (0, core_1.setFailed)(e);
+    (0, core_1.error)(`${e.message}\n${e.stack}`);
+    if (beforeExit)
+        await beforeExit();
 }
 function logExtraErrorMessages(accountId, projectName, error, deployment) {
     deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
@@ -711,7 +649,7 @@ function failedDeployMessage(stage) {
     return `Deployment failed on stage: ${stage.name} with a status of '${stage.status}'. See log output above for more information.`;
 }
 function unexpectedErrorMessage(accountId, projectName, deployment) {
-    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment === null || deployment === void 0 ? void 0 : deployment.id);
+    const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment?.id);
     return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
 }
 function hookDeleteErrorMessage(accountId, projectName, name) {
@@ -722,8 +660,7 @@ function reportIssueMessage() {
     return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`;
 }
 function currentBranch() {
-    var _a;
-    return (_a = github_1.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.ref;
+    return github_1.context.payload.pull_request?.head.ref;
 }
 function currentRepo() {
     return `${github_1.context.repo.owner}/${github_1.context.repo.repo}`;
