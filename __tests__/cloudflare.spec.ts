@@ -1,9 +1,9 @@
 import * as ActionsCore from '@actions/core'
+import FormData from 'form-data'
 import { AddressInfo } from 'net'
 import fetch from 'node-fetch'
 import WebSocket from 'ws'
 import createPagesSdk, { PagesSdk } from '../src/cloudflare'
-import { DeployHookDeleteError } from '../src/errors'
 import { ApiResult } from '../src/types'
 import { wait } from '../src/utils'
 import { buildLogs } from './mocks'
@@ -59,8 +59,6 @@ describe('createSdk', () => {
   const expectedBaseUrl =
     'https://api.cloudflare.com/client/v4/accounts/5790cddd-6172-4135-b275-2a64c49167d7/pages/projects/example-project'
 
-  const expectedHooksBaseUrl = 'https://api.cloudflare.com/client/v4/pages/webhooks'
-
   const expectedHeaders = {
     'X-Auth-Email': 'name@example.com',
     'X-Auth-Key': '076758732de5497881a1cece814ff4faee9ab',
@@ -103,133 +101,26 @@ describe('createSdk', () => {
     })
   })
 
-  it('creates, executes and deletes a deploy hook for Create Deployment with a non-production branch', async () => {
+  it('calls Create Deployment when non-production branch provided', async () => {
     const branch = 'foo'
-    const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
-    const deployId = '981d95c7-6a2f-491a-adee-09f74fbc38ce'
 
     mockCfFetchSuccess({ source: { config: { production_branch: 'main' } } })
-    mockCfFetchSuccess({ hook_id: hookId })
-    mockCfFetchSuccess({ id: deployId })
-    mockCfFetchSuccess('ok')
     mockCfFetchSuccess(success)
 
     await sdk.createDeployment(branch)
 
-    expect(fetch).toHaveBeenCalledTimes(5)
+    expect(fetch).toHaveBeenCalledTimes(2)
 
     expect(fetch).toHaveBeenNthCalledWith(1, expectedBaseUrl, {
       headers: expectedHeaders,
       method: 'GET',
     })
 
-    expect(fetch).toHaveBeenNthCalledWith(2, `${expectedBaseUrl}/deploy_hooks`, {
-      headers: expectedHeaders,
-      body: expect.any(String),
+    expect(fetch).toHaveBeenNthCalledWith(2, `${expectedBaseUrl}/deployments`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...expectedHeaders },
       method: 'POST',
+      body: expect.any(FormData),
     })
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      3,
-      `${expectedHooksBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
-      {
-        headers: expectedHeaders,
-        method: 'POST',
-      },
-    )
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      4,
-      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
-      {
-        headers: expectedHeaders,
-        method: 'DELETE',
-      },
-    )
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      5,
-      `${expectedBaseUrl}/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce`,
-      {
-        headers: expectedHeaders,
-        method: 'GET',
-      },
-    )
-  })
-
-  it('deletes a deploy hook for Create Deployment with a branch on failure', async () => {
-    const branch = 'foo'
-    const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
-
-    mockCfFetchSuccess({ source: { config: { production_branch: 'main' } } })
-    mockCfFetchSuccess({ hook_id: hookId })
-    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 502,
-      statusText: 'Bad Gateway',
-    })
-    mockCfFetchSuccess('ok')
-
-    await expect(sdk.createDeployment(branch)).rejects.toThrow()
-
-    expect(fetch).toHaveBeenCalledTimes(4)
-
-    expect(fetch).toHaveBeenNthCalledWith(1, expectedBaseUrl, {
-      headers: expectedHeaders,
-      method: 'GET',
-    })
-
-    expect(fetch).toHaveBeenNthCalledWith(2, `${expectedBaseUrl}/deploy_hooks`, {
-      headers: expectedHeaders,
-      body: expect.any(String),
-      method: 'POST',
-    })
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      3,
-      `${expectedHooksBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
-      {
-        headers: expectedHeaders,
-        method: 'POST',
-      },
-    )
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      4,
-      `${expectedBaseUrl}/deploy_hooks/f034771c-85ef-49d5-8d84-4683e365a23b`,
-      {
-        headers: expectedHeaders,
-        method: 'DELETE',
-      },
-    )
-  })
-
-  it('rejects with a hook error on delete deploy hook failure for Create Deployment with a branch on failure', async () => {
-    const branch = 'foo'
-    const hookId = 'f034771c-85ef-49d5-8d84-4683e365a23b'
-
-    mockCfFetchSuccess({ source: { config: { production_branch: 'main' } } })
-    mockCfFetchSuccess({ hook_id: hookId })
-    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 502,
-      statusText: 'Bad Gateway',
-    })
-    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 502,
-      statusText: 'Bad Gateway',
-    })
-
-    await sdk
-      .createDeployment(branch)
-      .then(() => {
-        // force failure if no
-        expect(true).toBe(false)
-      })
-      .catch((e) => {
-        expect(e).toBeInstanceOf(DeployHookDeleteError)
-      })
   })
 
   it('calls Get Deployment Info', async () => {
@@ -381,7 +272,7 @@ describe('createSdk', () => {
       await sdk.getLiveLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', onLog)
 
       buildLogs.forEach((log) => broadcast(log))
-      await wait(0)
+      await wait(5)
       expect(onLog).toHaveBeenCalledTimes(buildLogs.length)
       buildLogs.forEach((log) => expect(onLog).toHaveBeenCalledWith(log))
     })
