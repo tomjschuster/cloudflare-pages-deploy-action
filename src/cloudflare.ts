@@ -71,11 +71,11 @@ export default function createPagesSdk({
     const productionBranch = branch && (await getProject()).source.config.production_branch
 
     if (!branch || branch === productionBranch) {
-      info(`Creating a deployment for the production branch of ${projectName}.\n`)
+      info(`Creating a Pages deployment for the production branch of ${projectName}.\n`)
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
 
-    info(`Creating a preview for branch ${branch}.`)
+    info(`Creating a Pages deployment for branch ${branch}.`)
     const formData = new FormData()
     formData.append('branch', branch)
 

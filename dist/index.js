@@ -15568,10 +15568,10 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
         return __awaiter(this, void 0, void 0, function* () {
             const productionBranch = branch && (yield getProject()).source.config.production_branch;
             if (!branch || branch === productionBranch) {
-                (0, core_1.info)(`Creating a deployment for the production branch of ${projectName}.\n`);
+                (0, core_1.info)(`Creating a Pages deployment for the production branch of ${projectName}.\n`);
                 return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
             }
-            (0, core_1.info)(`Creating a preview for branch ${branch}.`);
+            (0, core_1.info)(`Creating a Pages deployment for branch ${branch}.`);
             const formData = new form_data_1.default();
             formData.append('branch', branch);
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST', formData);
@@ -16108,7 +16108,6 @@ function getInputs() {
 function deriveBranch(project, production, preview, branch) {
     const inputCount = [production, preview, branch].filter((x) => x).length;
     const githubBranch = currentBranch();
-    const derivedBranch = branch || githubBranch;
     if (inputCount > 1) {
         throw new Error('Inputs `production,` `preview,` and `branch` cannot be used together. Choose one.');
     }
@@ -16119,11 +16118,11 @@ function deriveBranch(project, production, preview, branch) {
     if ((inputCount === 0 || preview) && !githubBranch) {
         throw new Error(`Must specify either \`production\` or \`branch\` inputs for workflows not triggered by a pull request.`);
     }
-    if (production || derivedBranch === projectProductionBranch(project)) {
+    if (production) {
         return undefined;
     }
     if (preview) {
-        return currentBranch();
+        return githubBranch;
     }
     if (branch) {
         validateBranchName(branch);
@@ -16189,9 +16188,6 @@ function currentRepo() {
 }
 function projectRepo(project) {
     return `${project.source.config.owner}/${project.source.config.repo_name}`;
-}
-function projectProductionBranch(project) {
-    return project.source.config.production_branch;
 }
 function isProjectRepo(project) {
     return projectRepo(project) === currentRepo();

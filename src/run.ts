@@ -69,7 +69,6 @@ function deriveBranch(
 ): string | undefined {
   const inputCount = [production, preview, branch].filter((x) => x).length
   const githubBranch = currentBranch()
-  const derivedBranch = branch || githubBranch
 
   if (inputCount > 1) {
     throw new Error(
@@ -91,11 +90,11 @@ function deriveBranch(
     )
   }
 
-  if (production || derivedBranch === projectProductionBranch(project)) {
+  if (production) {
     return undefined
   }
   if (preview) {
-    return currentBranch()
+    return githubBranch
   }
 
   if (branch) {
@@ -182,10 +181,6 @@ function currentRepo(): string | undefined {
 
 function projectRepo(project: Project): string {
   return `${project.source.config.owner}/${project.source.config.repo_name}`
-}
-
-function projectProductionBranch(project: Project): string {
-  return project.source.config.production_branch
 }
 
 function isProjectRepo(project: Project): boolean {
