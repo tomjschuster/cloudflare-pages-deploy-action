@@ -75,7 +75,7 @@ export default function createPagesSdk({
   }
 
   async function createDeployment(branch?: string): Promise<Deployment> {
-    const productionBranch = branch && (await (await getProject()).source.config.production_branch)
+    const productionBranch = branch && (await getProject()).source.config.production_branch
 
     if (!branch || branch === productionBranch) {
       info(`Creating a deployment for the production branch of ${projectName}.\n`)

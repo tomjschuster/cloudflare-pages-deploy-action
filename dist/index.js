@@ -15565,7 +15565,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     }
     function createDeployment(branch) {
         return __awaiter(this, void 0, void 0, function* () {
-            const productionBranch = branch && (yield (yield getProject()).source.config.production_branch);
+            const productionBranch = branch && (yield getProject()).source.config.production_branch;
             if (!branch || branch === productionBranch) {
                 (0, core_1.info)(`Creating a deployment for the production branch of ${projectName}.\n`);
                 return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
