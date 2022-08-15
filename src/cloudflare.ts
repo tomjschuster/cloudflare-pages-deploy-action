@@ -1,7 +1,7 @@
-import { debug, error, info, warning } from '@actions/core'
+import { debug, error, info } from '@actions/core'
 import { nanoid } from 'nanoid'
 import fetch, { BodyInit } from 'node-fetch'
-import WebSocket from 'ws'
+import WebSocket, { CloseEvent } from 'ws'
 import { DeployHookDeleteError, formatApiErrors } from './errors'
 import {
   ApiResult,
@@ -9,6 +9,7 @@ import {
   DeployHookResult,
   Deployment,
   DeploymentLog,
+  LiveLogsResult,
   Project,
 } from './types'
 
@@ -25,7 +26,10 @@ export type PagesSdk = {
   getProject(): Promise<Project>
   createDeployment(branch?: string): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
-  getLiveLogs(deploymentId: string, onLog: (log: DeploymentLog) => void): Promise<() => void>
+  getLiveLogs(
+    deploymentId: string,
+    onLog: (log: DeploymentLog) => void,
+  ): Promise<() => Promise<void>>
 }
 
 /**
@@ -82,6 +86,10 @@ export default function createPagesSdk({
 
   function getDeploymentInfo(id: string): Promise<Deployment> {
     return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`))
+  }
+
+  function getLiveLogsJwt(id: string): Promise<LiveLogsResult> {
+    return fetchCf<LiveLogsResult>(projectPath(accountId, projectName, `/deployments/${id}/live`))
   }
 
   /**
@@ -144,56 +152,64 @@ export default function createPagesSdk({
     }
   }
 
-  async function getLiveLogs(id: string, onLog: (log: DeploymentLog) => void): Promise<() => void> {
-    const { jwt } = await fetchCf<{ jwt: string }>(
-      projectPath(accountId, projectName, `/deployments/${id}/live`),
-    )
+  async function getLiveLogs(
+    id: string,
+    onLog: (log: DeploymentLog) => void,
+  ): Promise<() => Promise<void>> {
+    const { jwt } = await getLiveLogsJwt(id)
+    const connection = new WebSocket(liveLogsUrl(jwt))
 
-    return new Promise((resolve, reject) => {
-      let resolved = false
-      let closed = false
-      const wsUrl = `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
+    let resolveOpen: (close: () => Promise<void>) => void
+    let rejectOpen: (evt: CloseEvent) => void
+    let resolveClosed: () => void
+    let closePromise: Promise<void>
 
-      const connection = new WebSocket(wsUrl)
-      connection.onopen = () => {
-        debug('[ws] WebSocket connection opened')
-        resolve(() => {
-          if (!closed) {
-            connection.terminate()
-            closed = true
-          } else {
-            debug('[ws] `close()` called more than once.')
-          }
-        })
-        resolved = true
-      }
-
-      connection.onerror = (e) => {
-        debug(`[ws] WebSocket error: ${e}`)
-      }
-
-      connection.onclose = (event) => {
-        if (!resolved) {
-          warning('[ws] WebSocket connection closed before resolution')
-          reject(event)
-        }
-
-        debug(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`)
-      }
-
-      connection.onmessage = (evt) => {
-        try {
-          const data = typeof evt.data === 'string' ? JSON.parse(evt.data) : undefined
-          if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
-            onLog(data)
-          } else {
-            warning(`[ws] Unexpected data format:\n${JSON.stringify(data, undefined, 2)}`)
-          }
-        } catch (e) {
-          error(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`)
-        }
-      }
+    const result = new Promise<() => Promise<void>>((resolve, reject) => {
+      resolveOpen = resolve
+      rejectOpen = reject
     })
+
+    function close(): Promise<void> {
+      closePromise =
+        closePromise ??
+        new Promise<void>((resolve) => {
+          resolveClosed = resolve
+          connection.close()
+        })
+
+      return closePromise
+    }
+
+    connection.onopen = () => {
+      debug('[ws] WebSocket connection opened')
+      resolveOpen(close)
+    }
+
+    connection.onerror = (e) => {
+      debug(`[ws] WebSocket error: ${e}`)
+    }
+
+    connection.onclose = (event) => {
+      debug(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`)
+
+      if (resolveClosed) {
+        resolveClosed()
+      } else {
+        // socket connection never established
+        rejectOpen(event)
+      }
+    }
+
+    connection.onmessage = (evt) => {
+      try {
+        const log = parseDeploymentLog(evt.data)
+        onLog(log)
+      } catch (e) {
+        error(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`)
+      }
+    }
+
+    return result
   }
 
   return {
@@ -210,4 +226,21 @@ function projectPath(accountId: string, projectName: string, path: string): stri
 
 function normalizedIsoString(): string {
   return new Date().toISOString().split('.')[0].replace(/[-:]/g, '')
+}
+
+function parseDeploymentLog(value: unknown): DeploymentLog {
+  const data = typeof value === 'string' ? JSON.parse(value) : undefined
+  if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
+    return data
+  }
+
+  throw new Error('Unexpected message format')
+}
+
+function liveLogsUrl(jwt: string): string {
+  return (
+    process.env.WS_HOST ??
+    /* istanbul ignore next */
+    `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
+  )
 }

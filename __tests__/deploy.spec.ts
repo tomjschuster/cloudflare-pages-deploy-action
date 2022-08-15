@@ -25,7 +25,9 @@ import {
 const getProject: jest.Mock<ReturnType<PagesSdk['getProject']>> = jest.fn()
 const createDeployment: jest.Mock<ReturnType<PagesSdk['createDeployment']>> = jest.fn()
 const getDeploymentInfo: jest.Mock<ReturnType<PagesSdk['getDeploymentInfo']>> = jest.fn()
-const getLiveLogs: jest.Mock<ReturnType<PagesSdk['getLiveLogs']>> = jest.fn(async () => () => null)
+const getLiveLogs: jest.Mock<ReturnType<PagesSdk['getLiveLogs']>> = jest.fn(
+  async () => () => Promise.resolve(),
+)
 
 const sdk = { getProject, createDeployment, getDeploymentInfo, getLiveLogs }
 

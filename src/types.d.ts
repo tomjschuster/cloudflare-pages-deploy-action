@@ -120,3 +120,7 @@ export type DeploymentCallbacks = {
   onSuccess: () => Promise<void>
   onFailure: () => Promise<void>
 }
+
+export type LiveLogsResult = {
+  jwt: string
+}
