@@ -37,18 +37,11 @@ export default function createPagesSdk({
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
     debug(`[PagesSdk] Request: ${method} ${path}`)
 
-    const authHeaders = {
-      'X-Auth-Key': apiKey,
-      'X-Auth-Email': email,
-    }
-
-    const contentType = body instanceof FormData ? 'application/x-www-form-urlencoded' : undefined
-
     const response = await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
-        ...authHeaders,
-        ...(contentType ? { 'Content-Type': contentType } : {}),
+        'X-Auth-Key': apiKey,
+        'X-Auth-Email': email,
       },
       body,
     })

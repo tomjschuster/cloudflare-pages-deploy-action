@@ -117,7 +117,7 @@ describe('createSdk', () => {
     })
 
     expect(fetch).toHaveBeenNthCalledWith(2, `${expectedBaseUrl}/deployments`, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...expectedHeaders },
+      headers: expectedHeaders,
       method: 'POST',
       body: expect.any(FormData),
     })

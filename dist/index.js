@@ -5243,6 +5243,7 @@ var http = __nccwpck_require__(3685);
 var https = __nccwpck_require__(5687);
 var parseUrl = (__nccwpck_require__(7310).parse);
 var fs = __nccwpck_require__(7147);
+var Stream = (__nccwpck_require__(2781).Stream);
 var mime = __nccwpck_require__(3583);
 var asynckit = __nccwpck_require__(4812);
 var populate = __nccwpck_require__(7142);
@@ -5338,8 +5339,8 @@ FormData.prototype._trackLength = function(header, value, options) {
     Buffer.byteLength(header) +
     FormData.LINE_BREAK.length;
 
-  // empty or either doesn't have path or not an http response
-  if (!value || ( !value.path && !(value.readable && value.hasOwnProperty('httpVersion')) )) {
+  // empty or either doesn't have path or not an http response or not a stream
+  if (!value || ( !value.path && !(value.readable && value.hasOwnProperty('httpVersion')) && !(value instanceof Stream))) {
     return;
   }
 
@@ -5694,13 +5695,15 @@ FormData.prototype.submit = function(params, cb) {
 
   // get content length and fire away
   this.getLength(function(err, length) {
-    if (err) {
+    if (err && err !== 'Unknown stream') {
       this._error(err);
       return;
     }
 
     // add content length
-    request.setHeader('Content-Length', length);
+    if (length) {
+      request.setHeader('Content-Length', length);
+    }
 
     this.pipe(request);
     if (cb) {
@@ -15537,14 +15540,12 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
             (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
-            const authHeaders = {
-                'X-Auth-Key': apiKey,
-                'X-Auth-Email': email,
-            };
-            const contentType = body instanceof form_data_1.default ? 'application/x-www-form-urlencoded' : undefined;
             const response = yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
-                headers: Object.assign(Object.assign({}, authHeaders), (contentType ? { 'Content-Type': contentType } : {})),
+                headers: {
+                    'X-Auth-Key': apiKey,
+                    'X-Auth-Email': email,
+                },
                 body,
             });
             (0, core_1.debug)(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`);
