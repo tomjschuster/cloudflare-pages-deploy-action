@@ -76,8 +76,11 @@ describe('deploy', () => {
     // assert resolved deployment is equal to last mock
     await expect(deploy(sdk, accountId, logger)).resolves.toEqual(deployment)
 
+    // We add and extra queued log whenever queued is polled more than once
+    const queuedLogs = stages.filter((s) => s[0] === 'queued').length > 1 ? 1 : 0
+
     // assert all logs flushed
-    expect(consoleSpy).toHaveBeenCalledTimes(stages.flatMap((x) => x[2]).length)
+    expect(consoleSpy).toHaveBeenCalledTimes(stages.flatMap((x) => x[2]).length + queuedLogs)
   }
 
   it('logs all stages of successful deployments', async () => {
@@ -106,9 +109,7 @@ describe('deploy', () => {
     createDeployment.mockResolvedValueOnce(mockDeployment('queued', 'idle'))
 
     const stages: MockStage[] = [
-      ['queued', 'active', []],
       ['queued', 'success', []],
-      ['initialize', 'active', initializeLogs],
       ['initialize', 'success', []],
       ['clone_repo', 'active', cloneRepoLogs],
       ['clone_repo', 'success', []],
@@ -120,8 +121,8 @@ describe('deploy', () => {
 
     await assertStages(stages)
 
-    expect(startGroupSpy).toHaveBeenCalledTimes(4)
-    expect(endGroupSpy).toHaveBeenCalledTimes(4)
+    expect(startGroupSpy).toHaveBeenCalledTimes(3)
+    expect(endGroupSpy).toHaveBeenCalledTimes(3)
   })
 
   it('logs all, already completed stages', async () => {

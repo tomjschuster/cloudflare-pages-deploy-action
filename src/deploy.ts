@@ -1,4 +1,4 @@
-import { debug, endGroup, error, startGroup, warning } from '@actions/core'
+import { debug, endGroup, error, info, startGroup, warning } from '@actions/core'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
 import { Logger } from './logger'
@@ -19,10 +19,15 @@ export async function deploy(
   let deployment = await sdk.createDeployment(branch)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
 
-  const closeLogsConnection = await sdk.getLiveLogs(deployment.id, logger.enqueue)
+  let closeLogsConnection: (() => Promise<void>) | undefined
 
   try {
     for (const { name } of deployment.stages) {
+      // Live logs endpoint fails if deployment is queued
+      if (!closeLogsConnection && name !== 'queued') {
+        closeLogsConnection = await sdk.getLiveLogs(deployment.id, logger.enqueue)
+      }
+
       if (callbacks?.onStageChange) await callbacks.onStageChange(name)
 
       deployment = await trackStage(sdk, name, deployment, logger)
@@ -31,7 +36,7 @@ export async function deploy(
     }
 
     logger.flush()
-    closeLogsConnection()
+    if (closeLogsConnection) await closeLogsConnection()
     return deployment
   } catch (e) {
     logger.flush()
@@ -39,7 +44,9 @@ export async function deploy(
     // istanbul ignore else
     if (e instanceof Error) error(e)
 
-    closeLogsConnection()
+    // istanbul ignore next
+    if (closeLogsConnection) await closeLogsConnection()
+
     throw new DeploymentError(e, deployment)
   }
 }
@@ -53,8 +60,8 @@ async function trackStage(
   let stageHasLogs = false
   let groupStarted = false
   let latestDeploymentInfo = deployment
-  //
   let polledAt: string = getPollTime()
+  let pollCount = 0
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -76,6 +83,13 @@ async function trackStage(
       groupStarted = true
     }
 
+    // Queued stage does not have logs
+    if (!groupStarted && stage.started_on && !stageHasLogs && name === 'queued' && pollCount > 1) {
+      startGroup(displayNewStage(name))
+      info('Build is queued')
+      groupStarted = true
+    }
+
     if (groupStarted) logger.flush(logsUntil)
 
     if (isStageComplete(stage) || isPastStage(latestDeploymentInfo, name)) {
@@ -89,6 +103,7 @@ async function trackStage(
     await wait(getPollInterval(name))
     polledAt = getPollTime()
     latestDeploymentInfo = await sdk.getDeploymentInfo(deployment.id)
+    pollCount++
   }
 }
 

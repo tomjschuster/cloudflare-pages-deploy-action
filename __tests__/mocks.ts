@@ -123,20 +123,7 @@ function setEndedOn(stage: Stage): Stage {
   return { ...stage, ended_on: isStageComplete(stage) ? stage.ended_on : null }
 }
 
-export const queuedLogs = [
-  {
-    ts: '2022-02-01T15:04:23.016698Z',
-    line: 'Build is queued',
-  },
-  {
-    ts: '2022-02-01T15:04:23.016698Z',
-    line: 'Build is queued',
-  },
-  {
-    ts: '2022-02-01T15:04:22.334870Z',
-    line: 'Finished',
-  },
-]
+export const queuedLogs = []
 
 export const initializeLogs = [
   {

@@ -250,9 +250,13 @@ function deploy(sdk, branch, logger, callbacks) {
         let deployment = yield sdk.createDeployment(branch);
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
-        const closeLogsConnection = yield sdk.getLiveLogs(deployment.id, logger.enqueue);
+        let closeLogsConnection;
         try {
             for (const { name } of deployment.stages) {
+                // Live logs endpoint fails if deployment is queued
+                if (!closeLogsConnection && name !== 'queued') {
+                    closeLogsConnection = yield sdk.getLiveLogs(deployment.id, logger.enqueue);
+                }
                 if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStageChange)
                     yield callbacks.onStageChange(name);
                 deployment = yield trackStage(sdk, name, deployment, logger);
@@ -260,7 +264,8 @@ function deploy(sdk, branch, logger, callbacks) {
                     break;
             }
             logger.flush();
-            closeLogsConnection();
+            if (closeLogsConnection)
+                yield closeLogsConnection();
             return deployment;
         }
         catch (e) {
@@ -268,7 +273,9 @@ function deploy(sdk, branch, logger, callbacks) {
             // istanbul ignore else
             if (e instanceof Error)
                 (0, core_1.error)(e);
-            closeLogsConnection();
+            // istanbul ignore next
+            if (closeLogsConnection)
+                yield closeLogsConnection();
             throw new errors_1.DeploymentError(e, deployment);
         }
     });
@@ -279,8 +286,8 @@ function trackStage(sdk, name, deployment, logger) {
         let stageHasLogs = false;
         let groupStarted = false;
         let latestDeploymentInfo = deployment;
-        //
         let polledAt = getPollTime();
+        let pollCount = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
             const stage = latestDeploymentInfo.stages.find((s) => s.name === name);
@@ -298,6 +305,12 @@ function trackStage(sdk, name, deployment, logger) {
                 (0, core_1.debug)(stage.started_on);
                 groupStarted = true;
             }
+            // Queued stage does not have logs
+            if (!groupStarted && stage.started_on && !stageHasLogs && name === 'queued' && pollCount > 1) {
+                (0, core_1.startGroup)(displayNewStage(name));
+                (0, core_1.info)('Build is queued');
+                groupStarted = true;
+            }
             if (groupStarted)
                 logger.flush(logsUntil);
             if ((0, utils_1.isStageComplete)(stage) || (0, utils_1.isPastStage)(latestDeploymentInfo, name)) {
@@ -311,6 +324,7 @@ function trackStage(sdk, name, deployment, logger) {
             yield (0, utils_1.wait)(getPollInterval(name));
             polledAt = getPollTime();
             latestDeploymentInfo = yield sdk.getDeploymentInfo(deployment.id);
+            pollCount++;
         }
     });
 }
