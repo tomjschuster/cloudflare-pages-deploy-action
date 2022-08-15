@@ -15666,7 +15666,7 @@ function liveLogsUrl(jwt) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dashboardBuildDeploymentsSettingsUrl = exports.dashboardDeploymentUrl = void 0;
+exports.dashboardDeploymentUrl = void 0;
 function dashboardDeploymentUrl(accountId, projectName, deploymentId) {
     if (!deploymentId) {
         return baseDashboardUrl(accountId, projectName);
@@ -15674,10 +15674,6 @@ function dashboardDeploymentUrl(accountId, projectName, deploymentId) {
     return `${baseDashboardUrl(accountId, projectName)}/${deploymentId}`;
 }
 exports.dashboardDeploymentUrl = dashboardDeploymentUrl;
-function dashboardBuildDeploymentsSettingsUrl(accountId, projectName) {
-    return `${dashboardDeploymentUrl(accountId, projectName)}/settings/builds-deployments`;
-}
-exports.dashboardBuildDeploymentsSettingsUrl = dashboardBuildDeploymentsSettingsUrl;
 function baseDashboardUrl(accountId, projectName) {
     return `https://dash.cloudflare.com/${accountId}/pages/view/${projectName}`;
 }
@@ -15852,7 +15848,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GithubApiError = exports.DeployHookDeleteError = exports.DeploymentError = exports.formatApiErrors = void 0;
+exports.GithubApiError = exports.DeploymentError = exports.formatApiErrors = void 0;
 function formatApiErrors(method, path, res) {
     return __awaiter(this, void 0, void 0, function* () {
         const text = `${method} ${path} [${res.status}: ${res.statusText}]`;
@@ -15891,28 +15887,10 @@ class DeploymentError extends Error {
     }
 }
 exports.DeploymentError = DeploymentError;
-class DeployHookDeleteError extends Error {
-    constructor(errorOrMessage, hookName) {
-        /* istanbul ignore else */
-        if (errorOrMessage instanceof Error) {
-            super(errorOrMessage.message);
-            this.stack = errorOrMessage.stack;
-        }
-        else if (typeof errorOrMessage === 'string' || errorOrMessage === undefined) {
-            super(errorOrMessage);
-        }
-        else {
-            super(`${errorOrMessage}`);
-        }
-        Object.setPrototypeOf(this, DeployHookDeleteError.prototype);
-        this.hookName = hookName;
-    }
-}
-exports.DeployHookDeleteError = DeployHookDeleteError;
 class GithubApiError extends Error {
     constructor(status, message) {
         super(`[GitHub API Error] Status: ${status}${message && `, Message: ${message}`}`);
-        Object.setPrototypeOf(this, DeployHookDeleteError.prototype);
+        Object.setPrototypeOf(this, GithubApiError.prototype);
     }
 }
 exports.GithubApiError = GithubApiError;
@@ -16093,15 +16071,14 @@ const utils_1 = __nccwpck_require__(1314);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         let deployment;
-        const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } = getInputs();
+        const inputs = getInputs();
+        const { accountId, apiKey, email, projectName, githubToken, production, preview, branch } = inputs;
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
         const githubCallbacks = getDeploymentCallbacks(accountId, githubToken);
-        const branchError = yield validateBranch(sdk, production, preview, branch);
-        if (branchError)
-            return yield fail(branchError);
-        const deployBranch = getBranch(production, preview, branch);
         try {
-            deployment = yield (0, deploy_1.deploy)(sdk, deployBranch, (0, logger_1.createLogger)(), githubCallbacks);
+            const project = yield sdk.getProject();
+            const derivedBranch = deriveBranch(project, production, preview, branch);
+            deployment = yield (0, deploy_1.deploy)(sdk, derivedBranch, (0, logger_1.createLogger)(), githubCallbacks);
             setOutputFromDeployment(deployment);
         }
         catch (error) {
@@ -16128,50 +16105,39 @@ function getInputs() {
         githubToken: (0, core_1.getInput)('github-token'),
     };
 }
-function validateBranch(sdk, production, preview, branch) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const inputCount = [production, preview, branch].filter((x) => x).length;
-        if (inputCount > 1) {
-            return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.';
-        }
-        if (inputCount === 0) {
-            return 'Must provide exactly one of the following inputs: "production", "branch"';
-        }
-        if (branch)
-            return validateBranchName(branch);
-        if (production)
-            return;
-        if (preview) {
-            if (!currentBranch()) {
-                return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).';
-            }
-            const project = yield sdk.getProject();
-            const repo = currentRepo();
-            const pRepo = projectRepo(project);
-            if (repo !== pRepo) {
-                return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`;
-            }
-            if (currentBranch() === projectProductionBranch(project)) {
-                return '`preview` argument can not be used on the production branch.';
-            }
-        }
-    });
+function deriveBranch(project, production, preview, branch) {
+    const inputCount = [production, preview, branch].filter((x) => x).length;
+    const githubBranch = currentBranch();
+    const derivedBranch = branch || githubBranch;
+    if (inputCount > 1) {
+        throw new Error('Inputs `production,` `preview,` and `branch` cannot be used together. Choose one.');
+    }
+    if ((inputCount === 0 || preview) && !isProjectRepo(project)) {
+        const repoMessage = differentRepoMessage(project);
+        throw new Error(`Must specify either \`production\` or \`branch\` inputs when current repo is not the same as that of the pages project. ${repoMessage}`);
+    }
+    if ((inputCount === 0 || preview) && !githubBranch) {
+        throw new Error(`Must specify either \`production\` or \`branch\` inputs for workflows not triggered by a pull request.`);
+    }
+    if (production || derivedBranch === projectProductionBranch(project)) {
+        return undefined;
+    }
+    if (preview) {
+        return currentBranch();
+    }
+    if (branch) {
+        validateBranchName(branch);
+        return branch;
+    }
 }
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/;
 function validateBranchName(branch) {
     if (invalidBranchNameRegex.test(branch)) {
-        return `Invalid branch name: ${branch}`;
+        throw new Error(`Invalid branch name: ${branch}`);
     }
     if (branch.length > 255) {
-        return `Branch name must be 255 characters or less (received ${branch})`;
+        throw new Error(`Branch name must be 255 characters or less (received ${branch})`);
     }
-}
-function getBranch(production, preview, branch) {
-    if (production)
-        return;
-    if (branch)
-        return branch;
-    return currentBranch();
 }
 function getDeploymentCallbacks(accountId, githubToken) {
     if (!githubToken) {
@@ -16202,9 +16168,6 @@ function fail(e_, beforeExit) {
 function logExtraErrorMessages(accountId, projectName, error, deployment) {
     deployment = error instanceof errors_1.DeploymentError ? error.deployment : deployment;
     (0, core_1.info)(unexpectedErrorMessage(accountId, projectName, deployment));
-    if (error instanceof errors_1.DeployHookDeleteError) {
-        (0, core_1.info)(hookDeleteErrorMessage(accountId, projectName, error.hookName));
-    }
     (0, core_1.info)(reportIssueMessage());
 }
 function failedDeployMessage(stage) {
@@ -16213,10 +16176,6 @@ function failedDeployMessage(stage) {
 function unexpectedErrorMessage(accountId, projectName, deployment) {
     const url = (0, dashboard_1.dashboardDeploymentUrl)(accountId, projectName, deployment === null || deployment === void 0 ? void 0 : deployment.id);
     return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`;
-}
-function hookDeleteErrorMessage(accountId, projectName, name) {
-    const url = (0, dashboard_1.dashboardBuildDeploymentsSettingsUrl)(accountId, projectName);
-    return `Failed to delete temporary deploy hook "${name}". Go to ${url} to manually delete the deploy hook`;
 }
 function reportIssueMessage() {
     return `To report a bug, open an issue at https://github.com/tomjschuster/cloudflare-pages-deploy-action/issues`;
@@ -16233,6 +16192,12 @@ function projectRepo(project) {
 }
 function projectProductionBranch(project) {
     return project.source.config.production_branch;
+}
+function isProjectRepo(project) {
+    return projectRepo(project) === currentRepo();
+}
+function differentRepoMessage(project) {
+    return `The current GitHub repo is ${currentRepo()} but the repo associated with the CloudFlare Pages project is ${projectRepo(project)}`;
 }
 
 

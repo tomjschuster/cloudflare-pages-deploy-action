@@ -1,9 +1,9 @@
 import { error, getBooleanInput, getInput, info, setFailed, setOutput } from '@actions/core'
 import { context } from '@actions/github'
-import createPagesSdk, { PagesSdk } from './cloudflare'
-import { dashboardBuildDeploymentsSettingsUrl, dashboardDeploymentUrl } from './dashboard'
+import createPagesSdk from './cloudflare'
+import { dashboardDeploymentUrl } from './dashboard'
 import { deploy } from './deploy'
-import { DeployHookDeleteError, DeploymentError } from './errors'
+import { DeploymentError } from './errors'
 import { createGithubCloudfrontDeploymentCallbacks } from './github'
 import { createLogger } from './logger'
 import { Deployment, DeploymentCallbacks, Project, Stage } from './types'
@@ -12,19 +12,17 @@ import { isStageSuccess } from './utils'
 export async function run(): Promise<void> {
   let deployment: Deployment | undefined
 
-  const { accountId, apiKey, email, projectName, production, preview, branch, githubToken } =
-    getInputs()
+  const inputs = getInputs()
+  const { accountId, apiKey, email, projectName, githubToken, production, preview, branch } = inputs
 
   const sdk = createPagesSdk({ accountId, apiKey, email, projectName })
   const githubCallbacks = getDeploymentCallbacks(accountId, githubToken)
 
-  const branchError = await validateBranch(sdk, production, preview, branch)
-  if (branchError) return await fail(branchError)
-
-  const deployBranch = getBranch(production, preview, branch)
-
   try {
-    deployment = await deploy(sdk, deployBranch, createLogger(), githubCallbacks)
+    const project = await sdk.getProject()
+    const derivedBranch = deriveBranch(project, production, preview, branch)
+
+    deployment = await deploy(sdk, derivedBranch, createLogger(), githubCallbacks)
     setOutputFromDeployment(deployment)
   } catch (error) {
     logExtraErrorMessages(accountId, projectName, error, deployment)
@@ -63,60 +61,58 @@ function getInputs(): Inputs {
   }
 }
 
-async function validateBranch(
-  sdk: PagesSdk,
-  production: boolean,
-  preview: boolean,
-  branch?: string,
-): Promise<string | undefined> {
+function deriveBranch(
+  project: Project,
+  production: boolean | undefined,
+  preview: boolean | undefined,
+  branch: string | undefined,
+): string | undefined {
   const inputCount = [production, preview, branch].filter((x) => x).length
+  const githubBranch = currentBranch()
+  const derivedBranch = branch || githubBranch
 
   if (inputCount > 1) {
-    return 'Inputs "production," "preview," and "branch" cannot be used together. Choose one.'
+    throw new Error(
+      'Inputs `production,` `preview,` and `branch` cannot be used together. Choose one.',
+    )
   }
 
-  if (inputCount === 0) {
-    return 'Must provide exactly one of the following inputs: "production", "branch"'
+  if ((inputCount === 0 || preview) && !isProjectRepo(project)) {
+    const repoMessage = differentRepoMessage(project)
+
+    throw new Error(
+      `Must specify either \`production\` or \`branch\` inputs when current repo is not the same as that of the pages project. ${repoMessage}`,
+    )
   }
 
-  if (branch) return validateBranchName(branch)
+  if ((inputCount === 0 || preview) && !githubBranch) {
+    throw new Error(
+      `Must specify either \`production\` or \`branch\` inputs for workflows not triggered by a pull request.`,
+    )
+  }
 
-  if (production) return
-
+  if (production || derivedBranch === projectProductionBranch(project)) {
+    return undefined
+  }
   if (preview) {
-    if (!currentBranch()) {
-      return '`preview` argument was provided, but current branch could not be found (`preview` can only be set on pull requests).'
-    }
+    return currentBranch()
+  }
 
-    const project = await sdk.getProject()
-    const repo = currentRepo()
-    const pRepo = projectRepo(project)
-
-    if (repo !== pRepo) {
-      return `\`preview\` argument can only be used when the current repo (${repo} is linked to the CloudFlare Pages project (${pRepo}).`
-    }
-
-    if (currentBranch() === projectProductionBranch(project)) {
-      return '`preview` argument can not be used on the production branch.'
-    }
+  if (branch) {
+    validateBranchName(branch)
+    return branch
   }
 }
 
 const invalidBranchNameRegex = /(\.\.|[\000-\037\177 ~^:?*\\[]|^\/|\/$|\/\/|\.$|@{|^@$)+/
-function validateBranchName(branch: string): string | undefined {
+function validateBranchName(branch: string): void {
   if (invalidBranchNameRegex.test(branch)) {
-    return `Invalid branch name: ${branch}`
+    throw new Error(`Invalid branch name: ${branch}`)
   }
 
   if (branch.length > 255) {
-    return `Branch name must be 255 characters or less (received ${branch})`
+    throw new Error(`Branch name must be 255 characters or less (received ${branch})`)
   }
-}
-
-function getBranch(production: boolean, preview: boolean, branch?: string): string | undefined {
-  if (production) return
-  if (branch) return branch
-  return currentBranch()
 }
 
 function getDeploymentCallbacks(
@@ -160,10 +156,6 @@ function logExtraErrorMessages(
 
   info(unexpectedErrorMessage(accountId, projectName, deployment))
 
-  if (error instanceof DeployHookDeleteError) {
-    info(hookDeleteErrorMessage(accountId, projectName, error.hookName))
-  }
-
   info(reportIssueMessage())
 }
 
@@ -174,12 +166,6 @@ function failedDeployMessage(stage: Stage): string {
 function unexpectedErrorMessage(accountId: string, projectName: string, deployment?: Deployment) {
   const url = dashboardDeploymentUrl(accountId, projectName, deployment?.id)
   return `\nThere was an unexpected error. It's possible that your Cloudflare Pages deploy is still in progress or was successful. Go to ${url} for more details.`
-}
-
-function hookDeleteErrorMessage(accountId: string, projectName: string, name: string): string {
-  const url = dashboardBuildDeploymentsSettingsUrl(accountId, projectName)
-
-  return `Failed to delete temporary deploy hook "${name}". Go to ${url} to manually delete the deploy hook`
 }
 
 function reportIssueMessage(): string {
@@ -200,4 +186,14 @@ function projectRepo(project: Project): string {
 
 function projectProductionBranch(project: Project): string {
   return project.source.config.production_branch
+}
+
+function isProjectRepo(project: Project): boolean {
+  return projectRepo(project) === currentRepo()
+}
+
+function differentRepoMessage(project: Project): string {
+  return `The current GitHub repo is ${currentRepo()} but the repo associated with the CloudFlare Pages project is ${projectRepo(
+    project,
+  )}`
 }
