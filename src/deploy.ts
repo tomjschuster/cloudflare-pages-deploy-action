@@ -53,7 +53,8 @@ async function trackStage(
   let stageHasLogs = false
   let groupStarted = false
   let latestDeploymentInfo = deployment
-  let polledAt = new Date().toISOString()
+  //
+  let polledAt: string = getPollTime()
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -86,7 +87,7 @@ async function trackStage(
     }
 
     await wait(getPollInterval(name))
-    polledAt = new Date().toISOString()
+    polledAt = getPollTime()
     latestDeploymentInfo = await sdk.getDeploymentInfo(deployment.id)
   }
 }
@@ -154,4 +155,11 @@ function parseEnvPollInterval(name: StageName): number | undefined {
 
 export function stagePollIntervalEnvName(name: StageName): string {
   return `${name.toUpperCase()}_POLL_INTERVAL`
+}
+
+function getPollTime(): string {
+  // There can be a slight lag in stages appearing as completed from API.
+  // At the cost of having logs being a few seconds behind, this prevents
+  // prevents logs from showing up in the incorrect group.
+  return new Date(new Date().valueOf() - 2500).toISOString()
 }

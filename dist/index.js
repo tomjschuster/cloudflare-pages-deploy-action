@@ -279,7 +279,8 @@ function trackStage(sdk, name, deployment, logger) {
         let stageHasLogs = false;
         let groupStarted = false;
         let latestDeploymentInfo = deployment;
-        let polledAt = new Date().toISOString();
+        //
+        let polledAt = getPollTime();
         // eslint-disable-next-line no-constant-condition
         while (true) {
             const stage = latestDeploymentInfo.stages.find((s) => s.name === name);
@@ -308,7 +309,7 @@ function trackStage(sdk, name, deployment, logger) {
                 return latestDeploymentInfo;
             }
             yield (0, utils_1.wait)(getPollInterval(name));
-            polledAt = new Date().toISOString();
+            polledAt = getPollTime();
             latestDeploymentInfo = yield sdk.getDeploymentInfo(deployment.id);
         }
     });
@@ -370,6 +371,12 @@ function stagePollIntervalEnvName(name) {
     return `${name.toUpperCase()}_POLL_INTERVAL`;
 }
 exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
+function getPollTime() {
+    // There can be a slight lag in stages appearing as completed from API.
+    // At the cost of having logs being a few seconds behind, this prevents
+    // prevents logs from showing up in the incorrect group.
+    return new Date(new Date().valueOf() - 2500).toISOString();
+}
 
 
 /***/ }),
