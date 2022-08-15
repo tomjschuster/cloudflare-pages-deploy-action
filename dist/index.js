@@ -15570,6 +15570,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 (0, core_1.info)(`Creating a deployment for the production branch of ${projectName}.\n`);
                 return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST');
             }
+            (0, core_1.info)(`Creating a preview for branch ${branch}.`);
             const formData = new form_data_1.default();
             formData.append('branch', branch);
             return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST', formData);
@@ -15709,6 +15710,7 @@ const utils_1 = __nccwpck_require__(1314);
 function deploy(sdk, branch, logger, callbacks) {
     return __awaiter(this, void 0, void 0, function* () {
         let deployment = yield sdk.createDeployment(branch);
+        (0, core_1.debug)(`Deployment:\n${JSON.stringify(deployment, null, 2)}`);
         if (callbacks === null || callbacks === void 0 ? void 0 : callbacks.onStart)
             yield callbacks.onStart(deployment);
         let closeLogsConnection;
