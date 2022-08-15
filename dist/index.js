@@ -14593,9 +14593,7 @@ function createLogger() {
     function peek(until) {
         const currentLength = logs.length;
         const untilDate = until ? new Date(until) : undefined;
-        const outsideWindowIndex = untilDate
-            ? logs.findIndex(({ ts }) => new Date(ts) >= untilDate)
-            : -1;
+        const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1;
         return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex;
     }
     function flush(until) {
