@@ -82,6 +82,7 @@ export default function createPagesSdk({
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
 
+    info(`Creating a preview for branch ${branch}.`)
     const formData = new FormData()
     formData.append('branch', branch)
 

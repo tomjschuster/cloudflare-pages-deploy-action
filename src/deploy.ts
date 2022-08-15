@@ -17,6 +17,7 @@ export async function deploy(
   callbacks?: DeploymentCallbacks,
 ): Promise<Deployment> {
   let deployment = await sdk.createDeployment(branch)
+  debug(`Deployment:\n${JSON.stringify(deployment, null, 2)}`)
   if (callbacks?.onStart) await callbacks.onStart(deployment)
 
   let closeLogsConnection: (() => Promise<void>) | undefined
