@@ -3,17 +3,16 @@
   "version": "0.0.11",
   "private": true,
   "description": "A GitHub Action to deploy a CloudFlare Pages Project",
-  "main": "lib/main.js",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "cross-env WS_NO_BUFFER_UTIL=1 WS_NO_UTF_8_VALIDATE=1 tsc",
+    "build": "cross-env WS_NO_BUFFER_UTIL=1 WS_NO_UTF_8_VALIDATE=1 ncc build src/main.ts --source-map --license licenses.txt",
     "build:pages": "ts-node scripts/build.ts",
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
-    "package": "ncc build --source-map --license licenses.txt",
     "test": "jest --coverage",
     "test-watch": "jest --watch",
-    "all": "npm run build && npm run format && npm run lint && npm run package && npm test",
+    "all": "npm run build && npm run format && npm run lint && npm test",
     "release": "standard-version"
   },
   "repository": {
