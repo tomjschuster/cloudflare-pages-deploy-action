@@ -140,11 +140,7 @@ export const queuedLogs = [
 
 export const initializeLogs = [
   {
-    ts: '2022-02-01T15:04:22.987058Z',
-    line: 'Initializing build environment. This may take up to a few minutes to complete',
-  },
-  {
-    ts: '2022-02-01T15:04:22.987058Z',
+    ts: '2022-02-01T15:04:23.812550Z',
     line: 'Initializing build environment. This may take up to a few minutes to complete',
   },
   {
