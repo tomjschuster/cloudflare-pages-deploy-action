@@ -1,6 +1,6 @@
 import * as actionsCore from '@actions/core'
 import { PagesSdk } from '../src/cloudflare'
-import { deploy, stagePollIntervalEnvName } from '../src/deploy'
+import { deploy } from '../src/deploy'
 import { DeploymentError } from '../src/errors'
 import { createLogger, Logger } from '../src/logger'
 import {
@@ -49,9 +49,6 @@ describe('deploy', () => {
     jest.spyOn(actionsCore, 'error').mockImplementation(() => undefined)
     startGroupSpy = jest.spyOn(actionsCore, 'startGroup').mockImplementation(() => undefined)
     endGroupSpy = jest.spyOn(actionsCore, 'endGroup').mockImplementation(() => undefined)
-    ;['queued', 'initialize', 'clone_repo', 'test', 'build', 'deploy'].forEach((name) => {
-      process.env[stagePollIntervalEnvName(name)] = '0'
-    })
   })
 
   afterAll(() => {

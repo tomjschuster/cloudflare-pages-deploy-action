@@ -1,4 +1,4 @@
-import { debug, endGroup, error, info, startGroup, warning } from '@actions/core'
+import { debug, endGroup, error, info, startGroup } from '@actions/core'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
 import { Logger } from './logger'
@@ -128,48 +128,20 @@ function displayNewStage(stageName: StageName): string {
   }
 }
 
-// The stages that last longer don't give feedback in between start/end, so there's no real need to
-// check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
-// (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
 function getPollInterval(name: StageName): number {
+  if (process.env.NODE_ENV === 'test') return 0
+
+  // istanbul ignore next
   switch (name) {
     case 'queued':
+      return 5000
     case 'initialize':
     case 'build':
     case 'clone_repo':
     case 'deploy':
     default:
-      return (
-        parseEnvPollInterval(name) ??
-        /* istanbul ignore next */
-        2500
-      )
+      return 2500
   }
-}
-
-/** Parses stage specific poll times from env (e.g. `$BUILD_POLL_INTERVAL`), mostly for testing */
-function parseEnvPollInterval(name: StageName): number | undefined {
-  const envName = stagePollIntervalEnvName(name)
-  const value = process.env[envName]
-
-  /* istanbul ignore next */
-  if (!value) {
-    return undefined
-  }
-
-  const parsed = Number(value).valueOf()
-
-  /* istanbul ignore next */
-  if (isNaN(parsed)) {
-    warning(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`)
-    return undefined
-  }
-
-  return parsed
-}
-
-export function stagePollIntervalEnvName(name: StageName): string {
-  return `${name.toUpperCase()}_POLL_INTERVAL`
 }
 
 function getPollTime(): string {

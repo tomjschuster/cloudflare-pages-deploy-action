@@ -237,7 +237,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.stagePollIntervalEnvName = exports.deploy = void 0;
+exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
 const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
@@ -348,43 +348,21 @@ function displayNewStage(stageName) {
             return stageName;
     }
 }
-// The stages that last longer don't give feedback in between start/end, so there's no real need to
-// check for frequent updates. Polling every 10 seconds on these stages slows down deploy by at most 5 seconds
-// (extend build 10 extra seconds if polling at end, deploy usually about 5 seconds)
 function getPollInterval(name) {
-    var _a;
+    if (process.env.NODE_ENV === 'test')
+        return 0;
+    // istanbul ignore next
     switch (name) {
         case 'queued':
+            return 5000;
         case 'initialize':
         case 'build':
         case 'clone_repo':
         case 'deploy':
         default:
-            return ((_a = parseEnvPollInterval(name)) !== null && _a !== void 0 ? _a : 
-            /* istanbul ignore next */
-            2500);
+            return 2500;
     }
 }
-/** Parses stage specific poll times from env (e.g. `$BUILD_POLL_INTERVAL`), mostly for testing */
-function parseEnvPollInterval(name) {
-    const envName = stagePollIntervalEnvName(name);
-    const value = process.env[envName];
-    /* istanbul ignore next */
-    if (!value) {
-        return undefined;
-    }
-    const parsed = Number(value).valueOf();
-    /* istanbul ignore next */
-    if (isNaN(parsed)) {
-        (0, core_1.warning)(`Invalid poll interval value "${value}" set for stage ${name} (${envName})`);
-        return undefined;
-    }
-    return parsed;
-}
-function stagePollIntervalEnvName(name) {
-    return `${name.toUpperCase()}_POLL_INTERVAL`;
-}
-exports.stagePollIntervalEnvName = stagePollIntervalEnvName;
 function getPollTime() {
     // There can be a slight lag in stages appearing as completed from API.
     // At the cost of having logs being a few seconds behind, this prevents
