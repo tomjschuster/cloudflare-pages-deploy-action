@@ -1,5 +1,4 @@
-import { endGroup, error, startGroup, warning } from '@actions/core'
-import { debug } from 'console'
+import { debug, endGroup, error, startGroup, warning } from '@actions/core'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
 import { Logger } from './logger'

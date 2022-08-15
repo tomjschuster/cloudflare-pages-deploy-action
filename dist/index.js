@@ -239,7 +239,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
-const console_1 = __nccwpck_require__(6206);
 const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
 /**
@@ -295,7 +294,7 @@ function trackStage(sdk, name, deployment, logger) {
                 stageHasLogs = true;
             if (!groupStarted && stage.started_on && stageHasLogs) {
                 (0, core_1.startGroup)(displayNewStage(name));
-                (0, console_1.debug)(stage.started_on);
+                (0, core_1.debug)(stage.started_on);
                 groupStarted = true;
             }
             if (groupStarted)
@@ -303,7 +302,7 @@ function trackStage(sdk, name, deployment, logger) {
             if ((0, utils_1.isStageComplete)(stage) || (0, utils_1.isPastStage)(latestDeploymentInfo, name)) {
                 if (groupStarted) {
                     if (stage.ended_on)
-                        (0, console_1.debug)(stage.ended_on);
+                        (0, core_1.debug)(stage.ended_on);
                     (0, core_1.endGroup)();
                 }
                 return latestDeploymentInfo;
@@ -14835,14 +14834,6 @@ module.exports = eval("require")("utf-8-validate");
 
 "use strict";
 module.exports = require("assert");
-
-/***/ }),
-
-/***/ 6206:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("console");
 
 /***/ }),
 
