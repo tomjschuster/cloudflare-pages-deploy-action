@@ -1,7 +1,7 @@
+import * as actionsCore from '@actions/core'
 import { getOctokit } from '@actions/github'
 import { createGithubCloudfrontDeploymentCallbacks } from '../src/github'
-import { completedDeployment } from '../__fixtures__/completedDeployment'
-import { previewDeployment } from '../__fixtures__/previewDeployment'
+import { completedDeployment, initialDeployment } from './mocks'
 
 jest.mock('@actions/github', () => ({
   getOctokit: jest.fn(() => ({})),
@@ -11,7 +11,7 @@ describe('createGithubCloudfrontDeploymentCallbacks', () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
-    jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    jest.spyOn(actionsCore, 'info').mockImplementation(() => undefined)
   })
 
   it('returns callbacks', () => {
@@ -57,7 +57,18 @@ describe('createGithubCloudfrontDeploymentCallbacks', () => {
 
     const callbacks = createGithubCloudfrontDeploymentCallbacks('foo', 'bar')
 
-    await callbacks.onStart(previewDeployment)
+    await callbacks.onStart({
+      ...initialDeployment,
+      environment: 'preview',
+      deployment_trigger: {
+        type: 'ad_hoc',
+        metadata: {
+          branch: 'some-feature',
+          commit_hash: 'd3b07384d113edec49eaa6238ad5ff00',
+          commit_message: 'hello world',
+        },
+      },
+    })
 
     expect(createDeployment).toHaveBeenCalledTimes(1)
     expect(createDeployment).toHaveBeenLastCalledWith(

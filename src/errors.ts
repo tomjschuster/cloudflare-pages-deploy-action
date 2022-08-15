@@ -1,20 +1,26 @@
-import { ApiErrorEntry, ApiResult, Deployment } from './types'
+import { Response } from 'node-fetch'
+import { ApiErrorEntry, Deployment } from './types'
 
-export class CloudFlareApiError extends Error {
-  result: ApiResult<unknown>
+export async function formatApiErrors(
+  method: string,
+  path: string,
+  res: Response,
+): Promise<string> {
+  const text = `${method} ${path} [${res.status}: ${res.statusText}]`
 
-  constructor(result: ApiResult<unknown>) {
-    super(formatApiErrors(result.errors || []))
+  try {
+    const json = await res.json()
 
-    Object.setPrototypeOf(this, CloudFlareApiError.prototype)
-
-    this.result = result
+    if (json && typeof json === 'object' && Array.isArray(json.errors) && json.errors.length > 0) {
+      const errors: ApiErrorEntry[] = json.errors
+      const messages = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
+      return `${text}\n${messages}`
+    } else {
+      return `${text}\n${JSON.stringify(json, undefined, 2)}`
+    }
+  } catch (_e) {
+    return text
   }
-}
-
-function formatApiErrors(errors: ApiErrorEntry[]): string {
-  const apiErrors = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
-  return apiErrors ? `[Cloudflare API Error]\n${apiErrors}` : '[Cloudflare API Error]'
 }
 
 export class DeploymentError extends Error {

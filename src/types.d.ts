@@ -92,21 +92,15 @@ export type SourceConfig = {
   deployments_enabled?: boolean
 }
 
-export type StageLogsResult = {
-  name: StageName
-  started_on: string | null
-  ended_on: string | null
-  status: StageStatus
-  start: number
-  end: number
+export type DeploymentLogsResult = {
   total: number
-  data: StageLog[]
+  includes_container_logs: boolean
+  data: DeploymentLog[]
 }
 
-export type StageLog = {
-  id: number
-  timestamp: string
-  message: string
+export type DeploymentLog = {
+  ts: string
+  line: string
 }
 
 export type DeployHook = {
@@ -125,4 +119,8 @@ export type DeploymentCallbacks = {
   onStageChange: (stageName: StageName) => Promise<void>
   onSuccess: () => Promise<void>
   onFailure: () => Promise<void>
+}
+
+export type LiveLogsResult = {
+  jwt: string
 }
