@@ -35,7 +35,10 @@ export async function deploy(
     return deployment
   } catch (e) {
     logger.flush()
-    error(e instanceof Error ? e : JSON.stringify(e))
+
+    // istanbul ignore else
+    if (e instanceof Error) error(e)
+
     closeLogsConnection()
     throw new DeploymentError(e, deployment)
   }
@@ -56,6 +59,7 @@ async function trackStage(
   while (true) {
     const stage = latestDeploymentInfo.stages.find((s) => s.name === name)
 
+    /* istanbul ignore next */
     if (!stage) {
       if (groupStarted) endGroup()
       return latestDeploymentInfo

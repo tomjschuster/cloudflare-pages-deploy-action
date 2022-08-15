@@ -14304,6 +14304,7 @@ async function trackStage(sdk, name, deployment, logger) {
     // eslint-disable-next-line no-constant-condition
     while (true) {
         const stage = latestDeploymentInfo.stages.find((s) => s.name === name);
+        /* istanbul ignore next */
         if (!stage) {
             if (groupStarted)
                 (0, core_1.endGroup)();
@@ -14399,10 +14400,8 @@ async function formatApiErrors(method, path, res) {
     const text = `${method} ${path} [${res.status}: ${res.statusText}]`;
     try {
         const json = await res.json();
-        if (json &&
-            typeof json === 'object' &&
-            typeof Array.isArray(json.errors) &&
-            json.errors.length > 0) {
+        console.log({ json });
+        if (json && typeof json === 'object' && Array.isArray(json.errors) && json.errors.length > 0) {
             const errors = json.errors;
             const messages = errors.map((error) => `${error.message} [${error.code}]`).join('\n');
             return `${text}\n${messages}`;
@@ -14761,11 +14760,7 @@ function projectProductionBranch(project) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = exports.isPastStage = exports.isStageComplete = exports.isStageFailure = exports.isStageSuccess = exports.isQueuedStage = void 0;
-function isQueuedStage(stage) {
-    return stage.name === 'queued';
-}
-exports.isQueuedStage = isQueuedStage;
+exports.wait = exports.isPastStage = exports.isStageComplete = exports.isStageFailure = exports.isStageSuccess = void 0;
 function isStageSuccess(stage) {
     return stage.status === 'success';
 }

@@ -1,9 +1,5 @@
 import { Deployment, Stage, StageName } from './types.d'
 
-export function isQueuedStage(stage: Stage): boolean {
-  return stage.name === 'queued'
-}
-
 export function isStageSuccess(stage: Stage): boolean {
   return stage.status === 'success'
 }

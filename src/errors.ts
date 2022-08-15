@@ -10,12 +10,9 @@ export async function formatApiErrors(
 
   try {
     const json = await res.json()
-    if (
-      json &&
-      typeof json === 'object' &&
-      typeof Array.isArray(json.errors) &&
-      json.errors.length > 0
-    ) {
+
+    console.log({ json })
+    if (json && typeof json === 'object' && Array.isArray(json.errors) && json.errors.length > 0) {
       const errors: ApiErrorEntry[] = json.errors
       const messages = errors.map((error) => `${error.message} [${error.code}]`).join('\n')
       return `${text}\n${messages}`

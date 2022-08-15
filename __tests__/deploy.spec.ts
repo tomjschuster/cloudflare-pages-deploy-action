@@ -18,6 +18,8 @@ import {
   initializeLogs,
   mockDeployment,
   queuedLogs,
+  stagesWithTest,
+  testLogs,
 } from './mocks'
 
 const getProject: jest.Mock<ReturnType<PagesSdk['getProject']>> = jest.fn()
@@ -51,14 +53,15 @@ describe('deploy', () => {
   })
 
   afterAll(() => {
+    logger.flush()
     process.env = env
   })
 
   type MockStage = [KnownStageName, KnownStageStatus, DeploymentLog[]]
 
-  async function assertStages(stages: MockStage[]): Promise<void> {
+  async function assertStages(stages: MockStage[], overrides?: Partial<Deployment>): Promise<void> {
     const deployment = stages.reduce<Deployment | null>((_, [stage, status, logs]) => {
-      const deployment = mockDeployment(stage, status)
+      const deployment = mockDeployment(stage, status, overrides)
 
       getDeploymentInfo.mockImplementationOnce(async () => {
         logs.forEach(logger.enqueue)
@@ -135,6 +138,32 @@ describe('deploy', () => {
 
     expect(startGroupSpy).toHaveBeenCalledTimes(4)
     expect(endGroupSpy).toHaveBeenCalledTimes(4)
+  })
+
+  it('handles unexpected stages', async () => {
+    createDeployment.mockResolvedValueOnce(
+      mockDeployment('queued', 'idle', { stages: stagesWithTest }),
+    )
+
+    const stages: MockStage[] = [
+      ['queued', 'active', queuedLogs],
+      ['queued', 'success', []],
+      ['initialize', 'active', initializeLogs],
+      ['initialize', 'success', []],
+      ['clone_repo', 'active', cloneRepoLogs],
+      ['clone_repo', 'success', []],
+      ['build', 'active', buildLogs],
+      ['build', 'success', []],
+      ['test' as KnownStageName, 'active', testLogs],
+      ['test' as KnownStageName, 'success', []],
+      ['deploy', 'active', deployLogs],
+      ['deploy', 'success', []],
+    ]
+
+    await assertStages(stages, { stages: stagesWithTest })
+
+    expect(startGroupSpy).toHaveBeenCalledTimes(6)
+    expect(endGroupSpy).toHaveBeenCalledTimes(6)
   })
 
   it('logs until failure, then returns deploy', async () => {

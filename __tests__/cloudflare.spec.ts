@@ -18,13 +18,6 @@ const failure: ApiResult<null> = {
   messages: [],
 }
 
-const emptyFailure: ApiResult<null> = {
-  result: null,
-  success: false,
-  errors: null,
-  messages: [],
-}
-
 function mockCfFetchSuccess<T>(result: T): void {
   ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
     ok: true,
@@ -242,6 +235,28 @@ describe('createSdk', () => {
         method: 'GET',
       },
     )
+  })
+
+  it('rejects with an API error for errors with no json body', async () => {
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      json: jest.fn(() => Promise.reject(new Error('foo'))),
+    })
+
+    await expect(sdk.createDeployment()).rejects.toThrowError(/\[502: Bad Gateway]$/)
+  })
+
+  it('rejects with an API error for errors with non-standard json bodies', async () => {
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      json: jest.fn(() => Promise.resolve({})),
+    })
+
+    await expect(sdk.createDeployment()).rejects.toThrowError(/\[502: Bad Gateway]\n{}$/)
   })
 
   it('rejects with an API error when response is not successful', async () => {

@@ -1,7 +1,40 @@
 import { Deployment, KnownStageName, KnownStageStatus, Project, Stage } from '../src/types'
 import { isStageComplete } from '../src/utils'
 
-const baseDeployemnt: Deployment = {
+const stages = [
+  {
+    name: 'queued',
+    started_on: '2022-02-01T15:04:23.016698Z',
+    ended_on: '2022-02-01T15:04:22.987058Z',
+    status: 'success',
+  },
+  {
+    name: 'initialize',
+    started_on: '2022-02-01T15:04:22.987058Z',
+    ended_on: '2022-02-01T15:06:30.987713Z',
+    status: 'success',
+  },
+  {
+    name: 'clone_repo',
+    started_on: '2022-02-01T15:06:30.987713Z',
+    ended_on: '2022-02-01T15:06:32.563318Z',
+    status: 'success',
+  },
+  {
+    name: 'build',
+    started_on: '2022-02-01T15:06:32.563318Z',
+    ended_on: '2022-02-01T15:08:44.121893Z',
+    status: 'success',
+  },
+  {
+    name: 'deploy',
+    started_on: '2022-02-01T15:08:44.121893Z',
+    ended_on: '2022-02-01T15:08:50.567074Z',
+    status: 'success',
+  },
+]
+
+const baseDeployment: Deployment = {
   id: 'a50b60b9-ac32-4279-9e53-2ad913a94a03',
   short_id: 'a50b60b9',
   project_id: 'efbefa69-f960-4cb5-a435-38c3a6340ab1',
@@ -24,38 +57,7 @@ const baseDeployemnt: Deployment = {
       commit_message: 'hello world',
     },
   },
-  stages: [
-    {
-      name: 'queued',
-      started_on: '2022-02-01T15:04:23.016698Z',
-      ended_on: '2022-02-01T15:04:22.987058Z',
-      status: 'success',
-    },
-    {
-      name: 'initialize',
-      started_on: '2022-02-01T15:04:22.987058Z',
-      ended_on: '2022-02-01T15:06:30.987713Z',
-      status: 'success',
-    },
-    {
-      name: 'clone_repo',
-      started_on: '2022-02-01T15:06:30.987713Z',
-      ended_on: '2022-02-01T15:06:32.563318Z',
-      status: 'success',
-    },
-    {
-      name: 'build',
-      started_on: '2022-02-01T15:06:32.563318Z',
-      ended_on: '2022-02-01T15:08:44.121893Z',
-      status: 'success',
-    },
-    {
-      name: 'deploy',
-      started_on: '2022-02-01T15:08:44.121893Z',
-      ended_on: '2022-02-01T15:08:50.567074Z',
-      status: 'success',
-    },
-  ],
+  stages,
   build_config: {
     build_command: 'npm run build',
     destination_dir: 'out',
@@ -85,9 +87,10 @@ export function mockDeployment(
   status?: KnownStageStatus,
   overrides?: Partial<Deployment>,
 ): Deployment {
-  if (!name || !status) return baseDeployemnt
+  const deployment = { ...baseDeployment, ...overrides }
+  if (!name || !status) return deployment
 
-  const [stages, latest_stage] = baseDeployemnt.stages.reduce<[Stage[], Stage | null]>(
+  const [stages, latest_stage] = deployment.stages.reduce<[Stage[], Stage | null]>(
     ([stages, latest_stage], s) => {
       if (latest_stage) {
         stages.push({ ...s, started_on: null, ended_on: null, status: 'idle' })
@@ -107,9 +110,9 @@ export function mockDeployment(
     [[], null],
   )
 
-  if (!latest_stage) throw new Error('Invalid mock stage name')
+  if (!latest_stage) throw new Error(`Invalid mock stage name: ${name}`)
 
-  return { ...baseDeployemnt, latest_stage, stages, ...overrides }
+  return { ...baseDeployment, latest_stage, stages }
 }
 
 function setStartedOn(stage: Stage): Stage {
@@ -178,25 +181,36 @@ export const buildLogs = [
     ts: '2022-02-01T15:06:32.745219Z',
     line: 'Installing dependencies',
   },
-  {
-    ts: '2022-02-01T15:08:43.503367Z',
-    line: 'Validating asset output directory',
-  },
-  {
-    ts: '2022-02-01T15:08:44.121893Z',
-    line: "Deploying your site to Cloudflare's global network...",
-  },
 ]
 
 export const deployLogs = [
   {
     ts: '2022-02-01T15:08:44.121893Z',
-    line: "Deploying your site to Cloudflare's global network...",
+    line: 'Running tests',
   },
   {
     ts: '2022-02-01T15:08:50.567074Z',
     line: 'Success: Your site was deployed!',
   },
+]
+
+export const testLogs = [
+  {
+    ts: '2022-02-01T15:08:44.121893Z',
+    line: 'jest --coverage',
+  },
+  {
+    ts: '2022-02-01T15:08:50.567074Z',
+    line: 'Ran all test suites.',
+  },
+]
+
+export const allLogs = [
+  ...queuedLogs,
+  ...initializeLogs,
+  ...cloneRepoLogs,
+  ...buildLogs,
+  ...deployLogs,
 ]
 
 export const project: Project = {
@@ -377,3 +391,42 @@ export const project: Project = {
   },
   created_on: '2022-01-26T06:28:38.58113Z',
 }
+
+export const stagesWithTest = [
+  {
+    name: 'queued',
+    started_on: '2022-02-01T15:04:23.016698Z',
+    ended_on: '2022-02-01T15:04:22.987058Z',
+    status: 'success',
+  },
+  {
+    name: 'initialize',
+    started_on: '2022-02-01T15:04:22.987058Z',
+    ended_on: '2022-02-01T15:06:30.987713Z',
+    status: 'success',
+  },
+  {
+    name: 'clone_repo',
+    started_on: '2022-02-01T15:06:30.987713Z',
+    ended_on: '2022-02-01T15:06:32.563318Z',
+    status: 'success',
+  },
+  {
+    name: 'build',
+    started_on: '2022-02-01T15:06:32.563318Z',
+    ended_on: '2022-02-01T15:08:03.882478Z',
+    status: 'success',
+  },
+  {
+    name: 'test',
+    started_on: '2022-02-01T15:08:03.882478Z',
+    ended_on: '2022-02-01T15:08:44.121893Z',
+    status: 'success',
+  },
+  {
+    name: 'deploy',
+    started_on: '2022-02-01T15:08:44.121893Z',
+    ended_on: '2022-02-01T15:08:50.567074Z',
+    status: 'success',
+  },
+]
