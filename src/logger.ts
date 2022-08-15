@@ -22,7 +22,9 @@ export function createLogger(): Logger {
     const currentLength = logs.length
     const untilDate = until ? new Date(until) : undefined
 
-    const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1
+    const outsideWindowIndex = untilDate
+      ? logs.findIndex(({ ts }) => new Date(ts) >= untilDate)
+      : -1
 
     return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex
   }
@@ -31,7 +33,12 @@ export function createLogger(): Logger {
     const count = peek(until)
 
     debug(`[deploy.ts] flushing ${count} of ${logs.length} logs`)
-    logs.splice(0, count).forEach(({ line }) => info(line))
+
+    logs.splice(0, count).forEach(({ ts, line }) => {
+      debug(ts)
+      info(line)
+    })
+
     debug(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`)
 
     return count

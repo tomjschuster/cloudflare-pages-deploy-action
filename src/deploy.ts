@@ -1,4 +1,5 @@
 import { endGroup, error, startGroup, warning } from '@actions/core'
+import { debug } from 'console'
 import { PagesSdk } from './cloudflare'
 import { DeploymentError } from './errors'
 import { Logger } from './logger'
@@ -71,13 +72,17 @@ async function trackStage(
 
     if (!groupStarted && stage.started_on && stageHasLogs) {
       startGroup(displayNewStage(name))
+      debug(stage.started_on)
       groupStarted = true
     }
 
     if (groupStarted) logger.flush(logsUntil)
 
     if (isStageComplete(stage) || isPastStage(latestDeploymentInfo, name)) {
-      if (groupStarted) endGroup()
+      if (groupStarted) {
+        if (stage.ended_on) debug(stage.ended_on)
+        endGroup()
+      }
       return latestDeploymentInfo
     }
 

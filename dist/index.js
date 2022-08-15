@@ -239,6 +239,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.stagePollIntervalEnvName = exports.deploy = void 0;
 const core_1 = __nccwpck_require__(2186);
+const console_1 = __nccwpck_require__(6206);
 const errors_1 = __nccwpck_require__(9292);
 const utils_1 = __nccwpck_require__(918);
 /**
@@ -294,13 +295,17 @@ function trackStage(sdk, name, deployment, logger) {
                 stageHasLogs = true;
             if (!groupStarted && stage.started_on && stageHasLogs) {
                 (0, core_1.startGroup)(displayNewStage(name));
+                (0, console_1.debug)(stage.started_on);
                 groupStarted = true;
             }
             if (groupStarted)
                 logger.flush(logsUntil);
             if ((0, utils_1.isStageComplete)(stage) || (0, utils_1.isPastStage)(latestDeploymentInfo, name)) {
-                if (groupStarted)
+                if (groupStarted) {
+                    if (stage.ended_on)
+                        (0, console_1.debug)(stage.ended_on);
                     (0, core_1.endGroup)();
+                }
                 return latestDeploymentInfo;
             }
             yield (0, utils_1.wait)(getPollInterval(name));
@@ -573,13 +578,18 @@ function createLogger() {
     function peek(until) {
         const currentLength = logs.length;
         const untilDate = until ? new Date(until) : undefined;
-        const outsideWindowIndex = untilDate ? logs.findIndex(({ ts }) => new Date(ts) > untilDate) : -1;
+        const outsideWindowIndex = untilDate
+            ? logs.findIndex(({ ts }) => new Date(ts) >= untilDate)
+            : -1;
         return outsideWindowIndex === -1 ? currentLength : outsideWindowIndex;
     }
     function flush(until) {
         const count = peek(until);
         (0, core_1.debug)(`[deploy.ts] flushing ${count} of ${logs.length} logs`);
-        logs.splice(0, count).forEach(({ line }) => (0, core_1.info)(line));
+        logs.splice(0, count).forEach(({ ts, line }) => {
+            (0, core_1.debug)(ts);
+            (0, core_1.info)(line);
+        });
         (0, core_1.debug)(`[deploy.ts] remaining logs:\n${JSON.stringify(logs)}`);
         return count;
     }
@@ -14825,6 +14835,14 @@ module.exports = eval("require")("utf-8-validate");
 
 "use strict";
 module.exports = require("assert");
+
+/***/ }),
+
+/***/ 6206:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("console");
 
 /***/ }),
 
