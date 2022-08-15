@@ -1,15 +1,16 @@
+import { debug, error, info } from '@actions/core'
 import { nanoid } from 'nanoid'
-import fetch, { BodyInit, Response } from 'node-fetch'
-import { CloudFlareApiError, DeployHookDeleteError } from './errors'
+import fetch, { BodyInit } from 'node-fetch'
+import WebSocket, { CloseEvent } from 'ws'
+import { DeployHookDeleteError, formatApiErrors } from './errors'
 import {
   ApiResult,
   DeployHook,
   DeployHookResult,
   Deployment,
-  KnownStageName,
+  DeploymentLog,
+  LiveLogsResult,
   Project,
-  StageLogsResult,
-  StageName,
 } from './types'
 
 const CF_BASE_URL = 'https://api.cloudflare.com/client/v4'
@@ -25,7 +26,10 @@ export type PagesSdk = {
   getProject(): Promise<Project>
   createDeployment(branch?: string): Promise<Deployment>
   getDeploymentInfo(id: string): Promise<Deployment>
-  getStageLogs(deploymentId: string, stageName: StageName): Promise<StageLogsResult>
+  getLiveLogs(
+    deploymentId: string,
+    onLog: (log: DeploymentLog) => void,
+  ): Promise<() => Promise<void>>
 }
 
 /**
@@ -39,16 +43,30 @@ export default function createPagesSdk({
   projectName,
 }: PagesSdkConfig): PagesSdk {
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
-    const result = (await fetch(`${CF_BASE_URL}${path}`, {
+    debug(`[PagesSdk] Request: ${method} ${path}`)
+
+    const response = await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
         'X-Auth-Key': apiKey,
         'X-Auth-Email': email,
       },
       body,
-    }).then((res) => (res.ok ? res.json() : failedRequestError(res)))) as ApiResult<T>
+    })
 
-    if (!result.success) return Promise.reject(new CloudFlareApiError(result))
+    debug(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`)
+
+    if (!response.ok) {
+      const message = await formatApiErrors(method, path, response)
+      return Promise.reject(new Error(message))
+    }
+
+    const result: ApiResult<T> = await response.json()
+
+    if (result.success === false) {
+      const message = await formatApiErrors(method, path, response)
+      return Promise.reject(new Error(message))
+    }
 
     return result.result
   }
@@ -59,8 +77,7 @@ export default function createPagesSdk({
 
   function createDeployment(branch?: string): Promise<Deployment> {
     if (!branch) {
-      console.log('')
-      console.log(`Creating a deployment for the production branch of ${projectName}.\n`)
+      info(`Creating a deployment for the production branch of ${projectName}.\n`)
       return fetchCf(projectPath(accountId, projectName, '/deployments'), 'POST')
     }
 
@@ -71,8 +88,8 @@ export default function createPagesSdk({
     return fetchCf(projectPath(accountId, projectName, `/deployments/${id}`))
   }
 
-  function getStageLogs(id: string, name: KnownStageName): Promise<StageLogsResult> {
-    return fetchCf(projectPath(accountId, projectName, `/deployments/${id}/history/${name}/logs`))
+  function getLiveLogsJwt(id: string): Promise<LiveLogsResult> {
+    return fetchCf<LiveLogsResult>(projectPath(accountId, projectName, `/deployments/${id}/live`))
   }
 
   /**
@@ -89,8 +106,7 @@ export default function createPagesSdk({
     // Cloudflare API supports triggering production deployement without a webhook
     if (branch === project.source.config.production_branch) return await createDeployment()
 
-    console.log('')
-    console.log(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
+    info(`Creating a deployment for branch "${branch}" of ${projectName}.\n`)
 
     // UNDOCUMENTED ENDPOINT
     function createDeployHook(name: string, branch: string): Promise<DeployHook> {
@@ -136,11 +152,71 @@ export default function createPagesSdk({
     }
   }
 
+  async function getLiveLogs(
+    id: string,
+    onLog: (log: DeploymentLog) => void,
+  ): Promise<() => Promise<void>> {
+    const { jwt } = await getLiveLogsJwt(id)
+    const connection = new WebSocket(liveLogsUrl(jwt))
+
+    let resolveOpen: (close: () => Promise<void>) => void
+    let rejectOpen: (evt: CloseEvent) => void
+    let resolveClosed: () => void
+    let closePromise: Promise<void>
+
+    const result = new Promise<() => Promise<void>>((resolve, reject) => {
+      resolveOpen = resolve
+      rejectOpen = reject
+    })
+
+    function close(): Promise<void> {
+      closePromise =
+        closePromise ??
+        new Promise<void>((resolve) => {
+          resolveClosed = resolve
+          connection.close()
+        })
+
+      return closePromise
+    }
+
+    connection.onopen = () => {
+      debug('[ws] WebSocket connection opened')
+      resolveOpen(close)
+    }
+
+    connection.onerror = (e) => {
+      debug(`[ws] WebSocket error: ${e}`)
+    }
+
+    connection.onclose = (event) => {
+      debug(`[ws] WebSocket closed: ${event.reason} (CODE: ${event.code})`)
+
+      if (resolveClosed) {
+        resolveClosed()
+      } else {
+        // socket connection never established
+        rejectOpen(event)
+      }
+    }
+
+    connection.onmessage = (evt) => {
+      try {
+        const log = parseDeploymentLog(evt.data)
+        onLog(log)
+      } catch (e) {
+        error(`[ws] Error parsing message data: DATA: ${evt.data}, ERROR: ${e}`)
+      }
+    }
+
+    return result
+  }
+
   return {
     getProject,
     createDeployment,
     getDeploymentInfo,
-    getStageLogs,
+    getLiveLogs,
   }
 }
 
@@ -152,13 +228,19 @@ function normalizedIsoString(): string {
   return new Date().toISOString().split('.')[0].replace(/[-:]/g, '')
 }
 
-async function failedRequestError(res: Response): Promise<string> {
-  const text = `${res.status}: ${res.statusText}`
-
-  try {
-    const json = await res.json()
-    return Promise.reject(new Error(`${text}\n${JSON.stringify(json, undefined, 2)}`))
-  } catch (_e) {
-    return Promise.reject(new Error(text))
+function parseDeploymentLog(value: unknown): DeploymentLog {
+  const data = typeof value === 'string' ? JSON.parse(value) : undefined
+  if (data && typeof data === 'object' && 'ts' in data && 'line' in data) {
+    return data
   }
+
+  throw new Error('Unexpected message format')
+}
+
+function liveLogsUrl(jwt: string): string {
+  return (
+    process.env.WS_HOST ??
+    /* istanbul ignore next */
+    `wss://api.pages.cloudflare.com/logs/ws/get?startIndex=0&jwt=${jwt}`
+  )
 }

@@ -1,7 +1,12 @@
+import * as ActionsCore from '@actions/core'
+import { AddressInfo } from 'net'
 import fetch from 'node-fetch'
+import WebSocket from 'ws'
 import createPagesSdk, { PagesSdk } from '../src/cloudflare'
 import { DeployHookDeleteError } from '../src/errors'
 import { ApiResult } from '../src/types'
+import { wait } from '../src/utils'
+import { buildLogs } from './mocks'
 
 const success: ApiResult<null> = {
   result: null,
@@ -14,13 +19,6 @@ const failure: ApiResult<null> = {
   result: null,
   success: false,
   errors: [{ code: 8000000, message: 'An unknown error occurred' }],
-  messages: [],
-}
-
-const emptyFailure: ApiResult<null> = {
-  result: null,
-  success: false,
-  errors: null,
   messages: [],
 }
 
@@ -41,6 +39,7 @@ jest.mock('node-fetch', () => ({
 
 describe('createSdk', () => {
   let sdk: PagesSdk
+  let errorSpy: jest.SpyInstance
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -52,7 +51,9 @@ describe('createSdk', () => {
       projectName: 'example-project',
     })
 
-    jest.spyOn(console, 'log').mockImplementation(() => undefined)
+    jest.spyOn(ActionsCore, 'info').mockImplementation(() => undefined)
+    jest.spyOn(ActionsCore, 'debug').mockImplementation(() => undefined)
+    errorSpy = jest.spyOn(ActionsCore, 'error').mockImplementation(() => undefined)
   })
 
   const expectedBaseUrl =
@@ -242,36 +243,52 @@ describe('createSdk', () => {
     )
   })
 
-  it('calls Stage Logs', async () => {
-    await sdk.getStageLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', 'build')
+  it('rejects with an API error for errors with no json body', async () => {
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      json: jest.fn(() => Promise.reject(new Error('foo'))),
+    })
 
-    expect(fetch).toHaveBeenCalledWith(
-      `${expectedBaseUrl}/deployments/981d95c7-6a2f-491a-adee-09f74fbc38ce/history/build/logs`,
-      {
-        headers: expectedHeaders,
-        method: 'GET',
-      },
-    )
+    await expect(sdk.createDeployment()).rejects.toThrowError(/\[502: Bad Gateway]$/)
+  })
+
+  it('rejects with an API error for errors with non-standard json bodies', async () => {
+    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      json: jest.fn(() => Promise.resolve({})),
+    })
+
+    await expect(sdk.createDeployment()).rejects.toThrowError(/\[502: Bad Gateway]\n{}$/)
   })
 
   it('rejects with an API error when response is not successful', async () => {
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
-      ok: true,
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
       json: jest.fn(() => Promise.resolve(failure)),
     })
 
     await expect(sdk.createDeployment()).rejects.toThrowError(
-      '[Cloudflare API Error]\nAn unknown error occurred [8000000]',
+      /\[500: Internal Server Error]\nAn unknown error occurred \[8000000]$/,
     )
   })
 
-  it('rejects with an API error when response is not successful with no messages', async () => {
+  it('rejects with an API error when response is ok but result is not successful', async () => {
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
       ok: true,
-      json: jest.fn(() => Promise.resolve(emptyFailure)),
+      status: 200,
+      statusText: 'OK',
+      json: jest.fn(() => Promise.resolve(failure)),
     })
 
-    await expect(sdk.createDeployment()).rejects.toThrowError('[Cloudflare API Error]')
+    await expect(sdk.createDeployment()).rejects.toThrowError(
+      /\[200: OK]\nAn unknown error occurred \[8000000]$/,
+    )
   })
 
   it('rejects with the response when not okay', async () => {
@@ -279,22 +296,113 @@ describe('createSdk', () => {
 
     ;(fetch as unknown as jest.Mock).mockResolvedValueOnce(res)
 
-    await expect(sdk.createDeployment()).rejects.toThrowError(/^502: Bad Gateway$/)
+    await expect(sdk.createDeployment()).rejects.toThrowError(/\[502: Bad Gateway\]$/)
   })
 
-  it('formats failed fetch errors', async () => {
-    const res = {
-      ok: false,
-      status: 403,
-      statusText: 'Forbidden',
-      json: () => Promise.resolve({ message: "You don't have access to this resource." }),
-    }
-    ;(fetch as unknown as jest.Mock).mockResolvedValueOnce(res)
-    const message = `403: Forbidden
-{
-  "message": "You don't have access to this resource."
-}`
+  describe('getLiveLogs', () => {
+    const WS_HOST = process.env.WS_HOST
+    let wss: WebSocket.Server
 
-    await expect(sdk.createDeployment()).rejects.toThrowError(message)
+    function getClient(): WebSocket {
+      const [ws] = wss.clients
+      return ws
+    }
+
+    function broadcast(log: unknown, binary = false): void {
+      wss.clients.forEach((client) => client.send(JSON.stringify(log), { binary }))
+    }
+
+    beforeEach(() => {
+      wss = new WebSocket.Server({ port: 0 })
+      process.env.WS_HOST = `ws://localhost:${(wss.address() as AddressInfo).port}`
+    })
+
+    afterEach(() => {
+      wss.clients.forEach((client) => client.terminate())
+      wss.close()
+      process.env.WS_HOST = WS_HOST
+    })
+
+    test('it resolves to a close function on open', async () => {
+      ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: jest.fn(() => Promise.resolve({ success: true, result: { jwt: '' } })),
+      })
+
+      const close = await sdk.getLiveLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', jest.fn())
+
+      const client = getClient()
+
+      await expect(close).toEqual(expect.any(Function))
+
+      await close()
+
+      expect(client.readyState).not.toBe(client.OPEN)
+    })
+
+    test('it safely handles multiple close calls', async () => {
+      ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: jest.fn(() => Promise.resolve({ success: true, result: { jwt: '' } })),
+      })
+
+      const close = await sdk.getLiveLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', jest.fn())
+
+      await expect(Promise.all([close(), close()])).resolves.toEqual([undefined, undefined])
+      await expect(close()).resolves.toBeUndefined()
+    })
+
+    test('it rejects when connection closes before handshake complete', async () => {
+      ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: jest.fn(() => Promise.resolve({ success: true, result: { jwt: '' } })),
+      })
+
+      process.env.WS_HOST = `ws://localhost:9999`
+      const closePromise = sdk.getLiveLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', jest.fn())
+      await expect(closePromise).rejects.toEqual(expect.any(Object))
+    })
+
+    test('it logs messages', async () => {
+      ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: jest.fn(() => Promise.resolve({ success: true, result: { jwt: '' } })),
+      })
+
+      const onLog = jest.fn()
+      await sdk.getLiveLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', onLog)
+
+      buildLogs.forEach((log) => broadcast(log))
+      await wait(0)
+      expect(onLog).toHaveBeenCalledTimes(buildLogs.length)
+      buildLogs.forEach((log) => expect(onLog).toHaveBeenCalledWith(log))
+    })
+
+    test('it handles invalid messages', async () => {
+      ;(fetch as unknown as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: jest.fn(() => Promise.resolve({ success: true, result: { jwt: '' } })),
+      })
+
+      const onLog = jest.fn()
+      await sdk.getLiveLogs('981d95c7-6a2f-491a-adee-09f74fbc38ce', onLog)
+
+      broadcast({ bad: 'format' })
+      broadcast('not json')
+      broadcast('binary', true)
+      await wait(0)
+      expect(onLog).toHaveBeenCalledTimes(0)
+      expect(errorSpy).toHaveBeenCalledTimes(3)
+    })
   })
 })
