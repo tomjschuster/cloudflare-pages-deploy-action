@@ -1,6 +1,6 @@
 {
   "name": "cloudflare-pages-deploy",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "private": true,
   "description": "A GitHub Action to deploy a CloudFlare Pages Project",
   "main": "dist/index.js",
