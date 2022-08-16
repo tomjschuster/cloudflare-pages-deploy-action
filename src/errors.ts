@@ -43,30 +43,10 @@ export class DeploymentError extends Error {
   }
 }
 
-export class DeployHookDeleteError extends Error {
-  hookName: string
-
-  constructor(errorOrMessage: unknown, hookName: string) {
-    /* istanbul ignore else */
-    if (errorOrMessage instanceof Error) {
-      super(errorOrMessage.message)
-      this.stack = errorOrMessage.stack
-    } else if (typeof errorOrMessage === 'string' || errorOrMessage === undefined) {
-      super(errorOrMessage)
-    } else {
-      super(`${errorOrMessage}`)
-    }
-
-    Object.setPrototypeOf(this, DeployHookDeleteError.prototype)
-
-    this.hookName = hookName
-  }
-}
-
 export class GithubApiError extends Error {
   constructor(status: number, message?: string) {
     super(`[GitHub API Error] Status: ${status}${message && `, Message: ${message}`}`)
 
-    Object.setPrototypeOf(this, DeployHookDeleteError.prototype)
+    Object.setPrototypeOf(this, GithubApiError.prototype)
   }
 }

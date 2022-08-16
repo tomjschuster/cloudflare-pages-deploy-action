@@ -3,7 +3,7 @@ import { getBooleanInput, getInput, setFailed, setOutput } from '@actions/core'
 import * as github from '@actions/github'
 import createPagesSdk from '../src/cloudflare'
 import { deploy } from '../src/deploy'
-import { DeployHookDeleteError, DeploymentError } from '../src/errors'
+import { DeploymentError } from '../src/errors'
 import { run } from '../src/run'
 import { DeploymentCallbacks } from '../src/types'
 import { completedDeployment, failedDeployment, project } from './mocks'
@@ -235,17 +235,6 @@ describe('run', () => {
 
     // 1 for failure, 1 for GitHub deployment, 1 for report an issue
     expect(consoleLog).toHaveBeenCalledTimes(3)
-    expect(setFailed).toHaveBeenCalled()
-  })
-
-  it('sets the job state to failed when deploy hook fails to delete', async () => {
-    ;(deploy as jest.Mock).mockRejectedValue(new DeployHookDeleteError(new Error('foo'), 'bar'))
-    ;(getBooleanInput as jest.Mock).mockReturnValueOnce(true)
-
-    await run()
-
-    // 1 for failed deploy, 1 for failed hook deletion, 1 for GitHub deployment, 1 for report an issue
-    expect(consoleLog).toHaveBeenCalledTimes(4)
     expect(setFailed).toHaveBeenCalled()
   })
 
