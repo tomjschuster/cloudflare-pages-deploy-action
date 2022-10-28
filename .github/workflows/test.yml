@@ -53,7 +53,7 @@ jobs:
         uses: ./
         with:
           account-id: '${{ env.CF_ACCOUNT_ID }}'
-          project-name: ''
+          project-name: ' '
           api-key: '${{ secrets.CF_GLOBAL_APIKEY }}'
           email: '${{ secrets.CF_EMAIL }}'
           preview: true
