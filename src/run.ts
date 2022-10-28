@@ -19,7 +19,7 @@ export async function run(): Promise<void> {
   const githubCallbacks = getDeploymentCallbacks(accountId, githubToken)
 
   try {
-    console.log('projectName', JSON.stringify(projectName))
+    info('projectName: ' + JSON.stringify(projectName))
 
     const project = await sdk.getProject()
     const derivedBranch = deriveBranch(project, production, preview, branch)
@@ -194,3 +194,5 @@ function differentRepoMessage(project: Project): string {
     project,
   )}`
 }
+
+function requireInput()
