@@ -194,5 +194,3 @@ function differentRepoMessage(project: Project): string {
     project,
   )}`
 }
-
-function requireInput()

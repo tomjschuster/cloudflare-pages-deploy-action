@@ -16076,6 +16076,7 @@ function run() {
         const sdk = (0, cloudflare_1.default)({ accountId, apiKey, email, projectName });
         const githubCallbacks = getDeploymentCallbacks(accountId, githubToken);
         try {
+            (0, core_1.info)('projectName: ' + JSON.stringify(projectName));
             const project = yield sdk.getProject();
             const derivedBranch = deriveBranch(project, production, preview, branch);
             deployment = yield (0, deploy_1.deploy)(sdk, derivedBranch, (0, logger_1.createLogger)(), githubCallbacks);
