@@ -16096,10 +16096,10 @@ function run() {
 exports.run = run;
 function getInputs() {
     return {
-        accountId: (0, core_1.getInput)('account-id', { required: true }),
-        apiKey: (0, core_1.getInput)('api-key', { required: true }),
-        email: (0, core_1.getInput)('email', { required: true }),
-        projectName: (0, core_1.getInput)('project-name', { required: true }),
+        accountId: requireStringInput('account-id'),
+        apiKey: requireStringInput('api-key'),
+        email: requireStringInput('email'),
+        projectName: requireStringInput('project-name'),
         production: (0, core_1.getBooleanInput)('production'),
         preview: (0, core_1.getBooleanInput)('preview'),
         branch: (0, core_1.getInput)('branch'),
@@ -16195,6 +16195,13 @@ function isProjectRepo(project) {
 }
 function differentRepoMessage(project) {
     return `The current GitHub repo is ${currentRepo()} but the repo associated with the CloudFlare Pages project is ${projectRepo(project)}`;
+}
+// same as `getInput` with requied, but raises if trimmed string is empty
+function requireStringInput(name) {
+    const input = (0, core_1.getInput)(name, { required: true });
+    if (!input)
+        throw new Error(`Input required and not supplied: ${name}`);
+    return input;
 }
 
 

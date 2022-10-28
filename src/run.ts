@@ -52,10 +52,10 @@ type Inputs = {
 
 function getInputs(): Inputs {
   return {
-    accountId: getInput('account-id', { required: true }),
-    apiKey: getInput('api-key', { required: true }),
-    email: getInput('email', { required: true }),
-    projectName: getInput('project-name', { required: true }),
+    accountId: requireStringInput('account-id'),
+    apiKey: requireStringInput('api-key'),
+    email: requireStringInput('email'),
+    projectName: requireStringInput('project-name'),
     production: getBooleanInput('production'),
     preview: getBooleanInput('preview'),
     branch: getInput('branch'),
@@ -193,4 +193,11 @@ function differentRepoMessage(project: Project): string {
   return `The current GitHub repo is ${currentRepo()} but the repo associated with the CloudFlare Pages project is ${projectRepo(
     project,
   )}`
+}
+
+// same as `getInput` with requied, but raises if trimmed string is empty
+function requireStringInput(name: string): string {
+  const input = getInput(name, { required: true })
+  if (!input) throw new Error(`Input required and not supplied: ${name}`)
+  return input
 }
