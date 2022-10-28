@@ -19,8 +19,6 @@ export async function run(): Promise<void> {
   const githubCallbacks = getDeploymentCallbacks(accountId, githubToken)
 
   try {
-    info('projectName: ' + JSON.stringify(projectName))
-
     const project = await sdk.getProject()
     const derivedBranch = deriveBranch(project, production, preview, branch)
 
