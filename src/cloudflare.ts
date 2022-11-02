@@ -62,7 +62,7 @@ export default function createPagesSdk({
 
     /* istanbul ignore if */
     if (isDebug()) {
-      debug(`[PagesSdk] Response: ${JSON.stringify(result, undefined, 2)}`)
+      debug(`[PagesSdk] Result: ${JSON.stringify(result, undefined, 2)}`)
     }
 
     if (result.success === false) {

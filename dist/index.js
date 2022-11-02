@@ -15560,7 +15560,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             const result = yield response.json();
             /* istanbul ignore if */
             if ((0, core_1.isDebug)()) {
-                (0, core_1.debug)(`[PagesSdk] Response: ${JSON.stringify(result, undefined, 2)}`);
+                (0, core_1.debug)(`[PagesSdk] Result: ${JSON.stringify(result, undefined, 2)}`);
             }
             if (result.success === false) {
                 const message = yield (0, errors_1.formatApiErrors)(method, path, response);
