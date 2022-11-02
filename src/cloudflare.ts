@@ -1,4 +1,4 @@
-import { debug, error, info } from '@actions/core'
+import { debug, error, info, isDebug } from '@actions/core'
 import FormData from 'form-data'
 import fetch, { BodyInit } from 'node-fetch'
 import WebSocket, { CloseEvent } from 'ws'
@@ -37,6 +37,11 @@ export default function createPagesSdk({
   async function fetchCf<T>(path: string, method = 'GET', body?: BodyInit): Promise<T> {
     debug(`[PagesSdk] Request: ${method} ${path}`)
 
+    /* istanbul ignore if */
+    if (body && isDebug()) {
+      debug(`[PagesSdk] Body: ${JSON.stringify(body)}`)
+    }
+
     const response = await fetch(`${CF_BASE_URL}${path}`, {
       method,
       headers: {
@@ -46,7 +51,7 @@ export default function createPagesSdk({
       body,
     })
 
-    debug(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`)
+    debug(`[PagesSdk] Response: ${method} ${path} [${response.status}: ${response.statusText}]`)
 
     if (!response.ok) {
       const message = await formatApiErrors(method, path, response)
@@ -54,6 +59,11 @@ export default function createPagesSdk({
     }
 
     const result: ApiResult<T> = await response.json()
+
+    /* istanbul ignore if */
+    if (isDebug()) {
+      debug(`[PagesSdk] Response: ${JSON.stringify(result, undefined, 2)}`)
+    }
 
     if (result.success === false) {
       const message = await formatApiErrors(method, path, response)

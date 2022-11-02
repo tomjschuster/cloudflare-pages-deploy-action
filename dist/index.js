@@ -15540,6 +15540,10 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
             (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
+            /* istanbul ignore if */
+            if (body && (0, core_1.isDebug)()) {
+                (0, core_1.debug)(`[PagesSdk] Body: ${JSON.stringify(body)}`);
+            }
             const response = yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
                 headers: {
@@ -15548,12 +15552,16 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 },
                 body,
             });
-            (0, core_1.debug)(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`);
+            (0, core_1.debug)(`[PagesSdk] Response: ${method} ${path} [${response.status}: ${response.statusText}]`);
             if (!response.ok) {
                 const message = yield (0, errors_1.formatApiErrors)(method, path, response);
                 return Promise.reject(new Error(message));
             }
             const result = yield response.json();
+            /* istanbul ignore if */
+            if ((0, core_1.isDebug)()) {
+                (0, core_1.debug)(`[PagesSdk] Response: ${JSON.stringify(result, undefined, 2)}`);
+            }
             if (result.success === false) {
                 const message = yield (0, errors_1.formatApiErrors)(method, path, response);
                 return Promise.reject(new Error(message));
