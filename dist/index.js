@@ -15542,7 +15542,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
             /* istanbul ignore if */
             if (body && (0, core_1.isDebug)()) {
-                (0, core_1.debug)(`[PagesSdk] Body: ${JSON.stringify(body)}`);
+                (0, core_1.debug)(`[PagesSdk] Request Body: ${JSON.stringify(body)}`);
             }
             const response = yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
@@ -15560,7 +15560,7 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
             const result = yield response.json();
             /* istanbul ignore if */
             if ((0, core_1.isDebug)()) {
-                (0, core_1.debug)(`[PagesSdk] Result: ${JSON.stringify(result, undefined, 2)}`);
+                (0, core_1.debug)(`[PagesSdk] Response Body: ${JSON.stringify(result, undefined, 2)}`);
             }
             if (result.success === false) {
                 const message = yield (0, errors_1.formatApiErrors)(method, path, response);

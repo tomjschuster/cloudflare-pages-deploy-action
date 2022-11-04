@@ -39,7 +39,7 @@ export default function createPagesSdk({
 
     /* istanbul ignore if */
     if (body && isDebug()) {
-      debug(`[PagesSdk] Body: ${JSON.stringify(body)}`)
+      debug(`[PagesSdk] Request Body: ${JSON.stringify(body)}`)
     }
 
     const response = await fetch(`${CF_BASE_URL}${path}`, {
@@ -62,7 +62,7 @@ export default function createPagesSdk({
 
     /* istanbul ignore if */
     if (isDebug()) {
-      debug(`[PagesSdk] Result: ${JSON.stringify(result, undefined, 2)}`)
+      debug(`[PagesSdk] Response Body: ${JSON.stringify(result, undefined, 2)}`)
     }
 
     if (result.success === false) {
