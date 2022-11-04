@@ -247,6 +247,14 @@ describe('run', () => {
     expect(setFailed).toHaveBeenCalled()
   })
 
+  it('throws when `getInput` returns an empty string', async () => {
+    ;(getInput as jest.Mock).mockReset()
+    ;(getInput as jest.Mock).mockReturnValue('')
+
+    await expect(run()).rejects.toEqual(new Error('Input required and not supplied: account-id'))
+    ;(getInput as jest.Mock).mockRestore()
+  })
+
   it('creates GitHub deploy callbacks when token provided', async () => {
     ;(deploy as jest.Mock).mockResolvedValueOnce(completedDeployment)
     // branch

@@ -15540,6 +15540,10 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
     function fetchCf(path, method = 'GET', body) {
         return __awaiter(this, void 0, void 0, function* () {
             (0, core_1.debug)(`[PagesSdk] Request: ${method} ${path}`);
+            /* istanbul ignore if */
+            if (body && (0, core_1.isDebug)()) {
+                (0, core_1.debug)(`[PagesSdk] Request Body: ${JSON.stringify(body)}`);
+            }
             const response = yield (0, node_fetch_1.default)(`${CF_BASE_URL}${path}`, {
                 method,
                 headers: {
@@ -15548,12 +15552,16 @@ function createPagesSdk({ accountId, apiKey, email, projectName, }) {
                 },
                 body,
             });
-            (0, core_1.debug)(`[PagesSdk] Result: ${method} ${path} [${response.status}: ${response.statusText}]`);
+            (0, core_1.debug)(`[PagesSdk] Response: ${method} ${path} [${response.status}: ${response.statusText}]`);
             if (!response.ok) {
                 const message = yield (0, errors_1.formatApiErrors)(method, path, response);
                 return Promise.reject(new Error(message));
             }
             const result = yield response.json();
+            /* istanbul ignore if */
+            if ((0, core_1.isDebug)()) {
+                (0, core_1.debug)(`[PagesSdk] Response Body: ${JSON.stringify(result, undefined, 2)}`);
+            }
             if (result.success === false) {
                 const message = yield (0, errors_1.formatApiErrors)(method, path, response);
                 return Promise.reject(new Error(message));
@@ -16095,10 +16103,10 @@ function run() {
 exports.run = run;
 function getInputs() {
     return {
-        accountId: (0, core_1.getInput)('account-id', { required: true }),
-        apiKey: (0, core_1.getInput)('api-key', { required: true }),
-        email: (0, core_1.getInput)('email', { required: true }),
-        projectName: (0, core_1.getInput)('project-name', { required: true }),
+        accountId: requireStringInput('account-id'),
+        apiKey: requireStringInput('api-key'),
+        email: requireStringInput('email'),
+        projectName: requireStringInput('project-name'),
         production: (0, core_1.getBooleanInput)('production'),
         preview: (0, core_1.getBooleanInput)('preview'),
         branch: (0, core_1.getInput)('branch'),
@@ -16194,6 +16202,13 @@ function isProjectRepo(project) {
 }
 function differentRepoMessage(project) {
     return `The current GitHub repo is ${currentRepo()} but the repo associated with the CloudFlare Pages project is ${projectRepo(project)}`;
+}
+// same as `getInput` with requied, but raises if trimmed string is empty
+function requireStringInput(name) {
+    const input = (0, core_1.getInput)(name, { required: true });
+    if (!input)
+        throw new Error(`Input required and not supplied: ${name}`);
+    return input;
 }
 
 
