@@ -1,18 +1,11 @@
-<p align="center">
-  <a href="https://github.com/tomjschuster/cloudflare-pages-deploy-action/actions/workflows/test.yml?query=branch%3Amain"><img alt="typescript-action status" src="https://github.com/tomjschuster/cloudflare-pages-deploy-action/workflows/build-test/badge.svg?branch=main"></a>
-  <a href="https://coveralls.io/github/tomjschuster/cloudflare-pages-deploy-action?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/tomjschuster/cloudflare-pages-deploy-action/badge.svg?branch=main"/></a>
-</p>
+# [DEPRECATED] Cloudflare Pages Deploy Action
 
-# Cloudflare Pages Deploy Action
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
+
+> [!IMPORTANT]  
+> `cloudflare-pages-deploy-action` was created as a way to integrate Cloudflare Pages deployments into a CI/CD pipeline when Pages was relatively new the supporting tooling was limited. You should now use [`wrangler-action`](https://github.com/cloudflare/wrangler-action) or the [`wrangler pages deploy`](https://developers.cloudflare.com/workers/wrangler/commands/#pages-deploy) command in your own script instead.
 
 Deploys your [Cloudflare Pages](https://pages.cloudflare.com/) project, enabling you to integrate Pages into your existing CI pipeline using the following features:
-
-- Deploy your production branch or any other branch
-- Deploy preview environments for every pull request
-- Defer deployment until other stages/steps have passed (e.g. tests)
-- Perform actions after successful deployment (e.g. purge cache)
-- Track deployment status from within GitHub Actions
-- Create GitHub deployments for your Pages deployments
 
 ![Cloudflare Page deploying from GitHub Actions](./assets/action-example.png)
 
